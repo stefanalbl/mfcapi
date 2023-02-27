@@ -1,0 +1,1531 @@
+{
+  "openapi" : "3.0.0",
+  "info" : {
+    "title" : "MFC API",
+    "description" : "# General\nStandard API for interfacing of of LTW MFC with WMS systems for automated warehouse.\n## Scenario\nThis API describes the interface between MFC and WMS. It contains common schemas and the API-endpoints of both systems.\nThe API methods tagged with `MFC` are to be implemented by the MFC (server-side) and called by the WMS (client-side). The API methods tagged with `WMS` are to be implemented by the WMS (server-side) and called by the MFC (client-side).\n## Common entities\nThe API provides access to three main entities:\n### Pallet Announcements\nUsed to introduce \"new pallets\" into the system. The MFC informs the WMS that a pallet has been detected in the system (on a conveyor position). In most scenarios a pallet has been scanned at an ID-station and the MFC reports barcode and location of the  pallet. The typical reaction of the WMS is then to create a transport.\n### Transports\nTransports are used to map the movement of a pallet from a source-location to a destination-location. The MFC will execute the transport and move the pallet to its destination. If the destination is reached the MFC informs the WMS about this change. If the destination was an intermediate destination (e.g. a decision point within the system) the WMS can update the destination of the transport and the MFC will continue with the movement. Same applies for execptions during the execution: the MFC informs the WMS about updates of location and status. Some execptions cause a final update for the WMS (no reaction needed), others may require a reaction by the WMS.\n### Waypoints\nCertain points (or areas) in the system that might change their status.  These might be:\n  - cranes\n  - aisles\n  - in or outbound conveyors\n  - crossings\n  - infeeds\n  - outbounds\n  - and others\nThe WMS is informed if a status of each waypoint to update its internal strategies.\n# Process examples\n## Inbound from conveyor to high-bay \n\n  - Forklift driver puts pallet on conveyor\n  - Pallet moves automatically to ID-station and is scanned.\n  - MFC calls `POST` [palletannouncement](#/Announcement/createAnnouncement) at the WMS.\n  - WMS processes the __announcement__ and determines a destination for the pallet (for example to a handover to a crane).\n  - WMS calls `POST` [transport](#/MFC/createTransport) to create the transport\n  - MFC executes the transport and informs the WMS with `GET`[transportupdate/progress/271](#/WMS/handleIPreached) that an intermediate destination has been reached and a new destination is required.\n  - WMS calls `PATCH` [transport/{tono}](#/MFC/changeTransportDestination) (tono is the transport-order-no of the affected transport) to set a new destination\n  - MFC executes the transport.\n  - Optional: Pallet is picked up by crane and MFC informs WMS that the pallet is on the crane by calling `GET`[transportupdate/info](#/WMS/handleLocationChanged) on the WMS. No reaction by WMS neccessary.\n  - Pallet is put into rack-location (destination). MFC informs WMS that transport was completed. `GET` [transportupdate/completion](#/MFC/handleTransportCompletion).\n  \n",
+    "termsOfService" : "https://www.ltw.at/service",
+    "contact" : {
+      "name" : "LTW API-Support",
+      "url" : "https://www.ltw.at/service",
+      "email" : "stefan.albl@ltw.at"
+    },
+    "license" : {
+      "name" : "Apache 2.0",
+      "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    "version" : "1.0.0"
+  },
+  "servers" : [ {
+    "url" : "https://virtserver.swaggerhub.com/LTW/MFC/1.0.0",
+    "description" : "SwaggerHub API Auto Mocking"
+  }, {
+    "url" : "https://virtserver.swaggerhub.com/stefanalbl/MFC/1.0.0",
+    "description" : "SwaggerHub API Auto Mocking"
+  }, {
+    "url" : "{protocol}://{productionServer}/v1",
+    "description" : "LTW MFC server on site",
+    "variables" : {
+      "protocol" : {
+        "default" : "https",
+        "enum" : [ "http", "https" ]
+      },
+      "productionServer" : {
+        "description" : "DNS or IP of WMS server",
+        "default" : "localhost"
+      }
+    }
+  }, {
+    "url" : "{protocol}://{testServer}/v1",
+    "description" : "Optional test-server for interface test",
+    "variables" : {
+      "protocol" : {
+        "default" : "https",
+        "enum" : [ "http", "https" ]
+      },
+      "testServer" : {
+        "description" : "DNS or IP of WMS server for testing",
+        "default" : "localhost"
+      }
+    }
+  }, {
+    "url" : "{protocol}://{WMSserver}",
+    "description" : "WMS-Server which implements WMS part of the MFC-API",
+    "variables" : {
+      "protocol" : {
+        "default" : "https",
+        "enum" : [ "http", "https" ]
+      },
+      "ERPserver" : {
+        "description" : "DNS or IP of WMS system",
+        "default" : "localhost"
+      }
+    }
+  }, {
+    "url" : "{protocol}://{MFCserver}",
+    "description" : "MFC-Server which implements MFC part of the MFC-API",
+    "variables" : {
+      "protocol" : {
+        "default" : "https",
+        "enum" : [ "http", "https" ]
+      },
+      "ERPserver" : {
+        "description" : "DNS or IP of WMS system",
+        "default" : "localhost"
+      }
+    }
+  } ],
+  "security" : [ {
+    "basicAuth" : [ ]
+  } ],
+  "paths" : {
+    "/ping" : {
+      "get" : {
+        "tags" : [ "Connectivity" ],
+        "summary" : "connectivity test",
+        "description" : "Connectivity test - to verify connectivity without triggering any actions.",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not authorized."
+          }
+        }
+      }
+    },
+    "/palletannouncement" : {
+      "get" : {
+        "tags" : [ "MFC", "Announcement" ],
+        "summary" : "Get list of existing announcements",
+        "description" : "... more details ...",
+        "operationId" : "getAnnouncements",
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnnouncementList"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnnouncementList"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Announement was not found."
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "WMS", "Announcement" ],
+        "summary" : "create (report) announcement",
+        "description" : "sends a pallet announcement to the WMS. Information that a (new) pallet appeared on a ID-point.  Next step: WMS should create a transport-order ",
+        "operationId" : "createAnnouncement",
+        "requestBody" : {
+          "description" : "Pallet announcement data",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Announcement"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Announcement"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created - item was added",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Announcement"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Announcement"
+                }
+              }
+            }
+          },
+          "405" : {
+            "description" : "Storage item already known, cannot add again. Use update routine instead."
+          },
+          "511" : {
+            "description" : "Error in data tutype"
+          },
+          "512" : {
+            "description" : "Error in data huid"
+          },
+          "513" : {
+            "description" : "Error in data tono"
+          },
+          "514" : {
+            "description" : "Error in data barcode"
+          },
+          "515" : {
+            "description" : "Error in data weight"
+          },
+          "516" : {
+            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+          },
+          "517" : {
+            "description" : "duplicate barcode - pallet already in transport"
+          }
+        }
+      }
+    },
+    "/palletannouncement/{tono}" : {
+      "get" : {
+        "tags" : [ "Announcement", "MFC" ],
+        "summary" : "Get announcement data by tono",
+        "description" : "Returns the data records for the requested announcement\n",
+        "operationId" : "getAnnouncementByToNo",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "path",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Announcement"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Announcement"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "A storage item with the specified ID was not found."
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Announcement", "MFC" ],
+        "summary" : "delete (cancel) an announcement",
+        "description" : "Deletes an announcement\n",
+        "operationId" : "deleteAnnouncementByToNo",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "path",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Successfully fulfilled - announcement was deleted"
+          },
+          "405" : {
+            "description" : "Not allowed to delete announcement."
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      }
+    },
+    "/locations/{type}" : {
+      "get" : {
+        "tags" : [ "Locations", "MFC" ],
+        "summary" : "Gets a list of  known locations  by type",
+        "description" : "Provides a list of known locations. Typically the ERP/PPS/MES will use locations of type `VIR` for interfacing with WMS. Details to be defined in each project.\n",
+        "operationId" : "getLocationsByType",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "description" : "Type of locations to be returned.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "enum" : [ "VIR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LocationList"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LocationList"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      }
+    },
+    "/location/{locationId}" : {
+      "get" : {
+        "tags" : [ "Locations", "MFC" ],
+        "summary" : "Get location details",
+        "description" : "WMS can query the location details of a location.\n",
+        "operationId" : "getLocationByID",
+        "parameters" : [ {
+          "name" : "locationId",
+          "in" : "path",
+          "description" : "Location-ID of location which data should be returned.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 32,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Location"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      }
+    },
+    "/waypoint" : {
+      "get" : {
+        "tags" : [ "Locations", "MFC" ],
+        "summary" : "Get list of waypoints",
+        "description" : "Gets a list of known waypoints and their status \n",
+        "operationId" : "getWayPoints",
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WaypointList"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WaypointList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status/waypoint/{wpid}" : {
+      "get" : {
+        "tags" : [ "Status", "MFC", "WMS" ],
+        "summary" : "Get waypoint status",
+        "description" : "Gets the status of a waypoint. The caller asks the master-system aboit the status of a waypoint in its system. The caller might then update it's own sttaus based on the querys result. Usage might depend on the scenario.\n",
+        "operationId" : "getWayPointStatus",
+        "parameters" : [ {
+          "name" : "wpid",
+          "in" : "path",
+          "description" : "ID of waypoint.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 32,
+            "type" : "string"
+          },
+          "example" : "PFT01-01-01-01"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WaypointStatus"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WaypointStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status/waypoint" : {
+      "patch" : {
+        "tags" : [ "Status", "WMS" ],
+        "summary" : "Set status of waypoint",
+        "description" : "Changes the status of a waypoint - WMS should update its internal routing\n",
+        "parameters" : [ {
+          "name" : "wpid",
+          "in" : "query",
+          "description" : "ID of waypoint",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/WaypointId"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Update Waypoint",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WaypointStatus"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WaypointStatus"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Updated"
+          }
+        }
+      }
+    },
+    "/transport" : {
+      "get" : {
+        "tags" : [ "Transports", "MFC" ],
+        "summary" : "Get list of transports",
+        "description" : "Provides a list of transports of the MFC.\n",
+        "operationId" : "getTransports",
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransportList"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransportList"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "MFC", "Transport" ],
+        "summary" : "Sends transport info updates to WMS",
+        "description" : "Updates a transport ......\n",
+        "operationId" : "updateTransport",
+        "requestBody" : {
+          "description" : "Transport order data",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Transport"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Transport"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transportinfo update received"
+          },
+          "405" : {
+            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
+          },
+          "511" : {
+            "description" : "Error in data tutype"
+          },
+          "512" : {
+            "description" : "Error in data huid"
+          },
+          "513" : {
+            "description" : "Error in data tono"
+          },
+          "514" : {
+            "description" : "Error in data barcode"
+          },
+          "515" : {
+            "description" : "Error in data weight"
+          },
+          "516" : {
+            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+          },
+          "517" : {
+            "description" : "duplicate barcode - pallet already in transport"
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "MFC", "Transport" ],
+        "summary" : "Create new transport",
+        "description" : "Create a new transport-order within the MFC \n",
+        "operationId" : "createTransport",
+        "requestBody" : {
+          "description" : "Transport order data",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTransport"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTransport"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "202" : {
+            "description" : "Transport creation request successfully received, creation is deferred."
+          },
+          "405" : {
+            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
+          },
+          "511" : {
+            "description" : "Error in data tutype"
+          },
+          "512" : {
+            "description" : "Error in data huid"
+          },
+          "513" : {
+            "description" : "Error in data tono"
+          },
+          "514" : {
+            "description" : "Error in data barcode"
+          },
+          "515" : {
+            "description" : "Error in data weight"
+          },
+          "516" : {
+            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+          },
+          "517" : {
+            "description" : "duplicate barcode - pallet already in transport"
+          }
+        }
+      }
+    },
+    "/transport/{tono}" : {
+      "delete" : {
+        "tags" : [ "MFC", "Transport" ],
+        "summary" : "Cancel transport",
+        "description" : "Cancel a transport......, MFC will send a transport-update\n",
+        "operationId" : "cancelTransport",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "path",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Cancellation succeeded (done)"
+          },
+          "202" : {
+            "description" : "Cancellation request accepted (processing os pending)"
+          },
+          "205" : {
+            "description" : "ToNo unknown - nothing to be done"
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "MFC", "Transport" ],
+        "summary" : "Updates a transport",
+        "description" : "Change destination\n",
+        "operationId" : "changeTransportDestination",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "path",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "destination",
+          "in" : "query",
+          "description" : "destination",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "update succeeded (done)"
+          }
+        }
+      }
+    },
+    "/transportupdate" : {
+      "put" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Update transport",
+        "description" : "Updates an existing transport-order within the MFC (see details, what can be changed in which state).\n",
+        "operationId" : "changeTransport",
+        "requestBody" : {
+          "description" : "Transport order data",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Transport"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Transport"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "405" : {
+            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
+          },
+          "511" : {
+            "description" : "Error in data tutype"
+          },
+          "512" : {
+            "description" : "Error in data huid"
+          },
+          "513" : {
+            "description" : "Error in data tono"
+          },
+          "514" : {
+            "description" : "Error in data barcode"
+          },
+          "515" : {
+            "description" : "Error in data weight"
+          },
+          "516" : {
+            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+          },
+          "517" : {
+            "description" : "duplicate barcode - pallet already in transport"
+          }
+        }
+      }
+    },
+    "/transportupdate/info" : {
+      "patch" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Pallet location has changed",
+        "description" : "MFC informs WMS about a location change without and required reaction by WMS (info only).\n",
+        "operationId" : "handleLocationChanged",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "query",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "currentLocation",
+          "in" : "query",
+          "description" : "current location",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success"
+          },
+          "511" : {
+            "description" : "Tono unknown"
+          },
+          "512" : {
+            "description" : "Location unknown"
+          },
+          "501" : {
+            "description" : "Unexpected error",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "maxLength" : 250,
+                  "type" : "string",
+                  "example" : "Internal error during processing of record, call support"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transportupdate/completion" : {
+      "patch" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Transport completed",
+        "description" : "MFC informs WMS that the transport was executed completely and is now finished.\n",
+        "operationId" : "handleTransportCompleted",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "query",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "currentLocation",
+          "in" : "query",
+          "description" : "current location",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success"
+          },
+          "511" : {
+            "description" : "Tono unknown"
+          },
+          "512" : {
+            "description" : "Location unknown"
+          },
+          "501" : {
+            "description" : "Unexpected error",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "maxLength" : 250,
+                  "type" : "string",
+                  "example" : "Internal error during processing of record, call support"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transportupdate/progress/{infocode}" : {
+      "patch" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Pallet reached IP",
+        "description" : "Pallet has reached an intermediate destination. Details in `infocode`\n",
+        "operationId" : "handleIPreached",
+        "parameters" : [ {
+          "name" : "infocode",
+          "in" : "path",
+          "description" : "Infocode",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "271",
+            "enum" : [ "271", "272" ]
+          },
+          "example" : "271"
+        }, {
+          "name" : "tono",
+          "in" : "query",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "currentLocation",
+          "in" : "query",
+          "description" : "current location",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success"
+          },
+          "511" : {
+            "description" : "Tono unknown"
+          },
+          "512" : {
+            "description" : "Location unknown"
+          },
+          "501" : {
+            "description" : "Unexpected error",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "maxLength" : 250,
+                  "type" : "string",
+                  "example" : "Internal error during processing of record, call support"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transportupdate/error/reaction/dpOccupied" : {
+      "patch" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Destination location is already occupied",
+        "description" : "The pallet was moved to the designated destination, but the destination was reported as already occupied (by the executing device e.g. crane).  The MFC has no knowledge, what was detected and if the reason for the detection was a proper pallet or just a reflection for the sensor, which is checking the state of the location. The WMS is expected to handle this event. The minimum expected reaction is an update of the transport with a new destination.\n",
+        "operationId" : "handleDPoccupied",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "query",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "currentLocation",
+          "in" : "query",
+          "description" : "current location",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        }, {
+          "name" : "destination",
+          "in" : "query",
+          "description" : "destination",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success"
+          },
+          "511" : {
+            "description" : "Tono unknown"
+          },
+          "512" : {
+            "description" : "Location unknown"
+          },
+          "513" : {
+            "description" : "Destination unknown"
+          },
+          "501" : {
+            "description" : "Unexpected error",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "maxLength" : 250,
+                  "type" : "string",
+                  "example" : "Internal error during processing of record, call support"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transportupdate/error/failure/apfree" : {
+      "patch" : {
+        "tags" : [ "WMS", "Transport" ],
+        "summary" : "Source location was empty",
+        "description" : "The crane tried to pick up a pallet from the source-location But the location was empty. The transport cannot be executed and The WMS needs to handle the failure of the transport. No furhter reaction is neccessary for this transport (same tono).\n",
+        "operationId" : "handleAPfree",
+        "parameters" : [ {
+          "name" : "tono",
+          "in" : "query",
+          "description" : "Transport Order Number",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ToNo"
+          }
+        }, {
+          "name" : "currentLocation",
+          "in" : "query",
+          "description" : "current location",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Location"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Success"
+          },
+          "511" : {
+            "description" : "Tono unknown"
+          },
+          "501" : {
+            "description" : "Unexpected error",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "maxLength" : 250,
+                  "type" : "string",
+                  "example" : "Internal error during processing of record, call support"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hutypes" : {
+      "get" : {
+        "tags" : [ "Master data" ],
+        "summary" : "List HU-Types",
+        "description" : "Gets a list of all known TU-Types for this project Provides a list of HU-types - result depends on project.\n",
+        "operationId" : "getHUTypes",
+        "responses" : {
+          "200" : {
+            "description" : "Success",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/inline_response_200"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/inline_response_200"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected error."
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "Transport" : {
+        "required" : [ "currentLocation", "huId", "nextLocation", "status", "tono" ],
+        "type" : "object",
+        "properties" : {
+          "tono" : {
+            "maximum" : 9999,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "internal identifier of transport order within WMS, ToNo is within a range from 1-9999 and is reused constantly. Only unique during the lifetime of one transport.",
+            "format" : "int32"
+          },
+          "status" : {
+            "maxLength" : 10,
+            "type" : "string",
+            "description" : "Status of transport order",
+            "enum" : [ "NEW", "IDLE", "WAITING", "BUSY", "SUBSTITUTE", "COMPLETED", "FAILED" ]
+          },
+          "startDate" : {
+            "type" : "string",
+            "description" : "start time of transport (creation) in format RFC3339 Section 5.6",
+            "format" : "date-time",
+            "example" : "2022-12-24T17:01:59Z"
+          },
+          "transportType" : {
+            "maxLength" : 10,
+            "type" : "string",
+            "enum" : [ "IN", "OUT", "MOVE", "DEFRAG", "CENTER", "EJECT" ]
+          },
+          "huId" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "ID of Handling-Unit that is transported"
+          },
+          "sourceLocation" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "source location of transport (start location) - must be a valid Location)"
+          },
+          "currentLocation" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "current location of transport (start location) - must be a valid Location)"
+          },
+          "nextLocation" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "next destination of transport (start location) - must be a valid Location)"
+          },
+          "destination" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "final destination of transport (start location) - must be a valid Location)"
+          }
+        },
+        "description" : "Entity which holds all data of a transport order for a single handling-unit from a source to its destination"
+      },
+      "CreateTransport" : {
+        "required" : [ "currentLocation", "huId", "nextLocation" ],
+        "type" : "object",
+        "properties" : {
+          "tono" : {
+            "maximum" : 9999,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "internal identifier of transport order within WMS, ToNo is within a range from 1-9999 and is reused constantly. Only unique during the lifetime of one transport.",
+            "format" : "int32"
+          },
+          "startDate" : {
+            "type" : "string",
+            "description" : "start time of transport (creation) in format RFC3339 Section 5.6",
+            "format" : "date-time",
+            "example" : "2022-12-24T17:01:59Z"
+          },
+          "transportType" : {
+            "maxLength" : 10,
+            "type" : "string",
+            "enum" : [ "IN", "OUT", "MOVE", "DEFRAG", "CENTER", "EJECT" ]
+          },
+          "huId" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "ID of Handling-Unit that is transported"
+          },
+          "currentLocation" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "current location of transport (start location) - must be a valid Location)"
+          },
+          "nextLocation" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "next destination of transport (start location) - must be a valid Location)"
+          }
+        },
+        "description" : "Entity which holds all data of a transport order for a single handling-unit from a source to its destination"
+      },
+      "TransportList" : {
+        "type" : "object",
+        "properties" : {
+          "transports" : {
+            "type" : "array",
+            "xml" : {
+              "name" : "transportarray",
+              "wrapped" : true
+            },
+            "items" : {
+              "$ref" : "#/components/schemas/Transport"
+            }
+          }
+        },
+        "description" : "List of Transports"
+      },
+      "Announcement" : {
+        "required" : [ "huId", "tono", "tuType" ],
+        "type" : "object",
+        "properties" : {
+          "tuType" : {
+            "maxLength" : 5,
+            "type" : "string"
+          },
+          "tono" : {
+            "maximum" : 9999,
+            "minimum" : 1,
+            "type" : "number"
+          },
+          "barcode" : {
+            "maxLength" : 1024,
+            "type" : "string"
+          },
+          "contourFault" : {
+            "type" : "string"
+          },
+          "weight" : {
+            "maximum" : 99999999,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "sourceID" : {
+            "$ref" : "#/components/schemas/Location"
+          },
+          "status" : {
+            "maxLength" : 10,
+            "type" : "string",
+            "description" : "Status of announcement.",
+            "enum" : [ "NEW", "PENDING", "DONE", "DELETED" ]
+          }
+        }
+      },
+      "AnnouncementList" : {
+        "type" : "object",
+        "properties" : {
+          "transports" : {
+            "type" : "array",
+            "xml" : {
+              "name" : "announcementarray",
+              "wrapped" : true
+            },
+            "items" : {
+              "$ref" : "#/components/schemas/Announcement"
+            }
+          }
+        },
+        "description" : "List of Announcements"
+      },
+      "HandlingUnitType" : {
+        "required" : [ "typeId" ],
+        "type" : "object",
+        "properties" : {
+          "typeId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "description" : {
+            "maxLength" : 255,
+            "type" : "string"
+          },
+          "with" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "length" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "height" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "base" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Location" : {
+        "required" : [ "locationId", "objecttype" ],
+        "type" : "object",
+        "properties" : {
+          "locationId" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "unique ID for location",
+            "nullable" : false,
+            "example" : "HRL"
+          },
+          "name" : {
+            "maxLength" : 255,
+            "type" : "string",
+            "description" : "name of location (descriptive)",
+            "nullable" : true,
+            "example" : "General area for High-Bay"
+          },
+          "objecttype" : {
+            "maxLength" : 3,
+            "type" : "string",
+            "description" : "Object type, must be one of following ...",
+            "example" : "VIR",
+            "default" : "VIR",
+            "enum" : [ "HBS", "CVS", "STC", "VIR", "AGV", "CMA" ]
+          }
+        },
+        "description" : "Location data for locations used by both systems (MFC and WMS)."
+      },
+      "LocationList" : {
+        "type" : "object",
+        "properties" : {
+          "locations" : {
+            "type" : "array",
+            "xml" : {
+              "name" : "locationarray",
+              "wrapped" : true
+            },
+            "items" : {
+              "discriminator" : {
+                "propertyName" : "objecttype"
+              },
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/Location"
+              }, {
+                "$ref" : "#/components/schemas/StorageLocation"
+              }, {
+                "$ref" : "#/components/schemas/ConveyorLocation"
+              }, {
+                "$ref" : "#/components/schemas/CraneLocation"
+              }, {
+                "$ref" : "#/components/schemas/AGVLocation"
+              }, {
+                "$ref" : "#/components/schemas/EquipmentLocation"
+              } ]
+            }
+          }
+        },
+        "description" : "List of Locations"
+      },
+      "StorageLocation" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Location"
+        }, {
+          "required" : [ "LType", "R", "X", "Y", "Z", "objecttype" ],
+          "type" : "object",
+          "properties" : {
+            "R" : {
+              "type" : "integer",
+              "description" : "Rack number of location (1-n)",
+              "format" : "int32"
+            },
+            "X" : {
+              "type" : "integer",
+              "description" : "X-coordinate (column) of location (1-n)",
+              "format" : "int32"
+            },
+            "Y" : {
+              "type" : "integer",
+              "description" : "Y-coordinate (level) of location (1-n)",
+              "format" : "int32"
+            },
+            "Z" : {
+              "type" : "integer",
+              "description" : "Z-coordinate (fork extension) of location (1-n)",
+              "format" : "int32"
+            },
+            "Pix" : {
+              "type" : "integer",
+              "description" : "place within compartment",
+              "format" : "int32"
+            },
+            "LType" : {
+              "type" : "integer",
+              "description" : "type of size of location",
+              "format" : "int32"
+            }
+          },
+          "description" : "specific rack locations inside high-bays"
+        } ]
+      },
+      "ConveyorLocation" : {
+        "required" : [ "Area", "Main", "Sub" ],
+        "type" : "object",
+        "properties" : {
+          "Area" : {
+            "type" : "integer",
+            "description" : "Conveyor Area number",
+            "format" : "int32"
+          },
+          "Main" : {
+            "type" : "integer",
+            "description" : "Conveyor main number",
+            "format" : "int32"
+          },
+          "Sub" : {
+            "type" : "integer",
+            "description" : "Conveyor sub-number",
+            "format" : "int32"
+          }
+        },
+        "description" : "Conveyor location data"
+      },
+      "CraneLocation" : {
+        "type" : "object",
+        "properties" : {
+          "craneNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "description" : "Crane location daza"
+      },
+      "AGVLocation" : {
+        "type" : "object",
+        "properties" : {
+          "systemID" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "vehicle" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "description" : "Location within an AGV system"
+      },
+      "EquipmentLocation" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "description" : "Future use"
+      },
+      "WaypointId" : {
+        "maxLength" : 32,
+        "type" : "string"
+      },
+      "ToNo" : {
+        "type" : "integer"
+      },
+      "WaypointStatus" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "example" : "AUTO",
+            "default" : "AUTO",
+            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BUSY", "JAM" ]
+          }
+        },
+        "description" : "Status of a waypoint"
+      },
+      "Waypoint" : {
+        "type" : "object",
+        "properties" : {
+          "locationId" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "locationID of waypoint"
+          }
+        },
+        "description" : "waypoint within system",
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/WaypointStatus"
+        }, {
+          "required" : [ "locationID" ],
+          "type" : "object"
+        } ]
+      },
+      "WaypointList" : {
+        "type" : "object",
+        "properties" : {
+          "locations" : {
+            "type" : "array",
+            "xml" : {
+              "name" : "waypointarray",
+              "wrapped" : true
+            },
+            "items" : {
+              "discriminator" : {
+                "propertyName" : "objecttype"
+              },
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/Waypoint"
+              } ]
+            }
+          }
+        },
+        "description" : "List of Waypoints"
+      },
+      "inline_response_200" : {
+        "type" : "object",
+        "properties" : {
+          "huTypes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HandlingUnitType"
+            }
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "WaypointId" : {
+        "name" : "wpid",
+        "in" : "query",
+        "description" : "ID of waypoint",
+        "required" : true,
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/WaypointId"
+        }
+      },
+      "ToNoPath" : {
+        "name" : "tono",
+        "in" : "path",
+        "description" : "Transport Order Number",
+        "required" : true,
+        "style" : "simple",
+        "explode" : false,
+        "schema" : {
+          "$ref" : "#/components/schemas/ToNo"
+        }
+      },
+      "InfoCode" : {
+        "name" : "infocode",
+        "in" : "path",
+        "description" : "Infocode",
+        "required" : true,
+        "style" : "simple",
+        "explode" : false,
+        "schema" : {
+          "type" : "string",
+          "default" : "271",
+          "enum" : [ "271", "272" ]
+        },
+        "example" : "271"
+      },
+      "ToNoQuery" : {
+        "name" : "tono",
+        "in" : "query",
+        "description" : "Transport Order Number",
+        "required" : true,
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/ToNo"
+        }
+      },
+      "CurrentLocationQuery" : {
+        "name" : "currentLocation",
+        "in" : "query",
+        "description" : "current location",
+        "required" : true,
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/Location"
+        }
+      },
+      "DestinationQuery" : {
+        "name" : "destination",
+        "in" : "query",
+        "description" : "destination",
+        "required" : true,
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/Location"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "basicAuth" : {
+        "type" : "http",
+        "scheme" : "basic"
+      }
+    }
+  }
+}
