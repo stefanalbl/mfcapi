@@ -26,8 +26,8 @@
     "description" : "LTW MFC server on site",
     "variables" : {
       "protocol" : {
-        "enum" : [ "http", "https" ],
-        "default" : "https"
+        "default" : "https",
+        "enum" : [ "http", "https" ]
       },
       "productionServer" : {
         "description" : "DNS or IP of WMS server",
@@ -39,8 +39,8 @@
     "description" : "Optional test-server for interface test",
     "variables" : {
       "protocol" : {
-        "enum" : [ "http", "https" ],
-        "default" : "https"
+        "default" : "https",
+        "enum" : [ "http", "https" ]
       },
       "testServer" : {
         "description" : "DNS or IP of WMS server for testing",
@@ -52,8 +52,8 @@
     "description" : "WMS-Server which implements WMS part of the MFC-API",
     "variables" : {
       "protocol" : {
-        "enum" : [ "http", "https" ],
-        "default" : "https"
+        "default" : "https",
+        "enum" : [ "http", "https" ]
       },
       "ERPserver" : {
         "description" : "DNS or IP of WMS system",
@@ -65,14 +65,17 @@
     "description" : "MFC-Server which implements MFC part of the MFC-API",
     "variables" : {
       "protocol" : {
-        "enum" : [ "http", "https" ],
-        "default" : "https"
+        "default" : "https",
+        "enum" : [ "http", "https" ]
       },
       "ERPserver" : {
         "description" : "DNS or IP of WMS system",
         "default" : "localhost"
       }
     }
+  } ],
+  "security" : [ {
+    "basicAuth" : [ ]
   } ],
   "paths" : {
     "/ping" : {
@@ -83,6 +86,9 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not authorized."
           }
         }
       }
@@ -366,7 +372,7 @@
       "get" : {
         "tags" : [ "Status", "MFC", "WMS" ],
         "summary" : "Get waypoint status",
-        "description" : "Gets the status of a waypoint\n",
+        "description" : "Gets the status of a waypoint. The caller asks the master-system aboit the status of a waypoint in its system. The caller might then update it's own sttaus based on the querys result. Usage might depend on the scenario.\n",
         "operationId" : "getWayPointStatus",
         "parameters" : [ {
           "name" : "wpid",
@@ -711,7 +717,7 @@
       }
     },
     "/transportupdate/info" : {
-      "get" : {
+      "patch" : {
         "tags" : [ "WMS", "Transport" ],
         "summary" : "Pallet location has changed",
         "description" : "MFC informs WMS about a location change without and required reaction by WMS (info only).\n",
@@ -763,7 +769,7 @@
       }
     },
     "/transportupdate/completion" : {
-      "get" : {
+      "patch" : {
         "tags" : [ "WMS", "Transport" ],
         "summary" : "Transport completed",
         "description" : "MFC informs WMS that the transport was executed completely and is now finished.\n",
@@ -815,7 +821,7 @@
       }
     },
     "/transportupdate/progress/{infocode}" : {
-      "get" : {
+      "patch" : {
         "tags" : [ "WMS", "Transport" ],
         "summary" : "Pallet reached IP",
         "description" : "Pallet has reached an intermediate destination. Details in `infocode`\n",
@@ -829,8 +835,8 @@
           "explode" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "271", "272" ],
-            "default" : "271"
+            "default" : "271",
+            "enum" : [ "271", "272" ]
           },
           "example" : "271"
         }, {
@@ -880,7 +886,7 @@
       }
     },
     "/transportupdate/error/reaction/dpOccupied" : {
-      "get" : {
+      "patch" : {
         "tags" : [ "WMS", "Transport" ],
         "summary" : "Destination location is already occupied",
         "description" : "The pallet was moved to the designated destination, but the destination was reported as already occupied (by the executing device e.g. crane).  The MFC has no knowledge, what was detected and if the reason for the detection was a proper pallet or just a reflection for the sensor, which is checking the state of the location. The WMS is expected to handle this event. The minimum expected reaction is an update of the transport with a new destination.\n",
@@ -945,7 +951,7 @@
       }
     },
     "/transportupdate/error/failure/apfree" : {
-      "get" : {
+      "patch" : {
         "tags" : [ "WMS", "Transport" ],
         "summary" : "Source location was empty",
         "description" : "The crane tried to pick up a pallet from the source-location But the location was empty. The transport cannot be executed and The WMS needs to handle the failure of the transport. No furhter reaction is neccessary for this transport (same tono).\n",
@@ -1241,8 +1247,8 @@
             "type" : "string",
             "description" : "Object type, must be one of following ...",
             "example" : "VIR",
-            "enum" : [ "HBS", "CVS", "STC", "VIR", "AGV", "CMA" ],
-            "default" : "VIR"
+            "default" : "VIR",
+            "enum" : [ "HBS", "CVS", "STC", "VIR", "AGV", "CMA" ]
           }
         },
         "description" : "Location data for locations used by both systems (MFC and WMS)."
@@ -1388,8 +1394,8 @@
           "status" : {
             "type" : "string",
             "example" : "AUTO",
-            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BUSY", "JAM" ],
-            "default" : "AUTO"
+            "default" : "AUTO",
+            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BUSY", "JAM" ]
           }
         },
         "description" : "Status of a waypoint"
@@ -1476,8 +1482,8 @@
         "explode" : false,
         "schema" : {
           "type" : "string",
-          "enum" : [ "271", "272" ],
-          "default" : "271"
+          "default" : "271",
+          "enum" : [ "271", "272" ]
         },
         "example" : "271"
       },
@@ -1513,6 +1519,12 @@
         "schema" : {
           "$ref" : "#/components/schemas/Location"
         }
+      }
+    },
+    "securitySchemes" : {
+      "basicAuth" : {
+        "type" : "http",
+        "scheme" : "basic"
       }
     }
   }
