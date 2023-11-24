@@ -201,7 +201,7 @@
             "maxLength" : 32,
             "type" : "string"
           },
-          "example" : "PFT01-010101"
+          "example" : "HRL01-PFT-010101"
         } ],
         "responses" : {
           "200" : {
@@ -236,7 +236,7 @@
             "maxLength" : 32,
             "type" : "string"
           },
-          "example" : "PFT01-01-01-01"
+          "example" : "HRL01-PFT-01-01-01"
         } ],
         "requestBody" : {
           "description" : "Transportdaten",
@@ -272,7 +272,7 @@
             "maxLength" : 32,
             "type" : "string"
           },
-          "example" : "PFT01-010101"
+          "example" : "HRL01-PFT-010101"
         } ],
         "requestBody" : {
           "description" : "Status des Meldepunkts",
@@ -481,7 +481,7 @@
             }
           },
           "202" : {
-            "description" : "Transport creation request successfully received, creation is deferred."
+            "description" : "Transporterstellungsanfrage empfangen, Verarbeitung erfolgt asynchron"
           },
           "405" : {
             "description" : "ToNo or HuID was already in use, cannot add again. Use update routine instead."
@@ -534,13 +534,88 @@
               "schema" : {
                 "$ref" : "#/components/schemas/LocationId"
               },
-              "example" : "HRL01-0101010101"
+              "example" : "HRL01-03-03-03-06-01"
             },
             "application/xml" : {
               "schema" : {
                 "$ref" : "#/components/schemas/LocationId"
               },
-              "example" : "HRL01-0101010101"
+              "example" : "HRL01-03-03-03-06-01"
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was updated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "TuNo unknonw, requested transport was not found."
+          }
+        }
+      }
+    },
+    "/transport/updatedestinationstack/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC", "Transport" ],
+        "summary" : "Aktualisiert Ziel mit Stapelhöhe",
+        "description" : "LVS sendet neues Ziel an MFR\n",
+        "operationId" : "updateTransportDestinationWithStack",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neues Transportziel mit Stapelhöhe",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationWithStackHeight"
+              },
+              "examples" : {
+                "firstpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 1
+                  }
+                },
+                "secondpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 2
+                  }
+                },
+                "thirdpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 3
+                  }
+                }
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationWithStackHeight"
+              }
             }
           },
           "required" : true
@@ -858,8 +933,8 @@
     "/hutypes" : {
       "get" : {
         "tags" : [ "Master data" ],
-        "summary" : "List HU-Types",
-        "description" : "Gets a list of all known TU-Types for this project Provides a list of HU-types - result depends on project.\n",
+        "summary" : "Listet alle erlaubten TE-Typen (hyTypes) auf",
+        "description" : "Liefert eine Liste aller definierten HU-typen\n",
         "operationId" : "getHUTypes",
         "responses" : {
           "200" : {
@@ -899,7 +974,7 @@
           "huId" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "ID of Handling-Unit that is transported"
+            "description" : "Handling-Unit-ID- eindeutige Identifikation einer Transporteinheit (zB. Barcode)"
           },
           "huType" : {
             "maxLength" : 10,
@@ -910,12 +985,12 @@
           "currentLocation" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "current location of transport (or start location) - must be a valid Location)"
+            "description" : "aktuelle Position der Transporteinheit (muss ein gültige Startposition sein)"
           },
           "nextLocation" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "next destination of transport (start location) - must be a valid Location)"
+            "description" : "Ziel oder nächstes Zwischenziel für Transporteiheit"
           },
           "priority" : {
             "maximum" : 9,
@@ -965,8 +1040,13 @@
             "status" : {
               "maxLength" : 10,
               "type" : "string",
-              "description" : "Status of transport order",
+              "description" : "Status des Transportaufttags",
               "enum" : [ "NEW", "IDLE", "WAITING", "BUSY", "SUBSTITUTE", "COMPLETED", "FAILED" ]
+            },
+            "contourFault" : {
+              "maxLength" : 10,
+              "type" : "string",
+              "description" : "Konturenfehler der Transporteiheut nach einer Konturenkontrolle (Werteliste siehe Projektdokutmentation), leer (NULL) wenn kein Konturenfehler vorliegt"
             },
             "errorCode" : {
               "maximum" : 999,
@@ -1007,6 +1087,7 @@
             "type" : "string"
           },
           "contourFault" : {
+            "maxLength" : 10,
             "type" : "string"
           },
           "weight" : {
@@ -1105,6 +1186,21 @@
         "maxLength" : 32,
         "type" : "string"
       },
+      "LocationWithStackHeight" : {
+        "required" : [ "locationId", "stackHeight" ],
+        "type" : "object",
+        "properties" : {
+          "locationId" : {
+            "$ref" : "#/components/schemas/LocationId"
+          },
+          "stackHeight" : {
+            "maximum" : 10,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "description" : "Zielplatz inkl. Stapelhöhe für Leerpaletten"
+      },
       "WaypointId" : {
         "maxLength" : 32,
         "type" : "string"
@@ -1134,10 +1230,10 @@
             "type" : "string",
             "example" : "AUTO",
             "default" : "AUTO",
-            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BUSY", "JAM" ]
+            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BLOCK", "BUSY", "JAM" ]
           }
         },
-        "description" : "Status of a waypoint"
+        "description" : "Status eines Meldepunkts"
       },
       "WaypointCounter" : {
         "type" : "object",
@@ -1171,13 +1267,13 @@
         },
         "description" : "Liste von Meldepunkten mit Anzahl der Aufträge die dahin unterwegs sind",
         "example" : [ {
-          "locationId" : "PFT01-010101",
+          "locationId" : "HRL01-PFT-010101",
           "count" : 1
         }, {
-          "locationId" : "PFT01-020202",
+          "locationId" : "HRL01-PFT-020202",
           "status" : 100
         }, {
-          "locationId" : "PFT01-030303",
+          "locationId" : "HRL01-PFT-030303",
           "status" : 0
         } ]
       },
@@ -1187,7 +1283,7 @@
           "locationId" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "locationID of waypoint"
+            "description" : "locationID des Meldepunkts"
           }
         },
         "description" : "Meldepunkt innerhalb der Anlage",
@@ -1217,15 +1313,15 @@
             }
           }
         },
-        "description" : "List of Waypoints",
+        "description" : "Liste aller definierten Meldepunkte",
         "example" : [ {
-          "locationId" : "PFT01-010101",
+          "locationId" : "HRL01-PFT-010101",
           "status" : "AUTO"
         }, {
-          "locationId" : "PFT01-020202",
+          "locationId" : "HRL01-PFT-020202",
           "status" : "MANU"
         }, {
-          "locationId" : "RBG01-LAM02",
+          "locationId" : "RBG01-LAM2",
           "status" : "ERR"
         } ]
       },
