@@ -325,18 +325,13 @@
     },
     "/status/counter" : {
       "patch" : {
-        "tags" : [ "Counter", "WMS" ],
+        "tags" : [ "Counter", "WMS", "MFC" ],
         "summary" : "Meldung Auftragszähler",
-        "description" : "Meldet den Stand der Auftragszähler an das WMS (Liste mit Zählern je Meldepunkt)\n",
+        "description" : "Meldet den Stand der Auftragszähler an das WMS (Liste mit Zählern je Meldepunkt) oder an den MFC\n",
         "requestBody" : {
           "description" : "Liste mit Meldepunkten und deren Zählerständen",
           "content" : {
             "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WaypointCounterList"
-              }
-            },
-            "application/xml" : {
               "schema" : {
                 "$ref" : "#/components/schemas/WaypointCounterList"
               }
@@ -966,10 +961,10 @@
         "type" : "object",
         "properties" : {
           "transportType" : {
-            "maxLength" : 10,
+            "maxLength" : 20,
             "type" : "string",
             "description" : "Transporttype (informell) zur Klassifizierung von Transportaufträgen",
-            "enum" : [ "IN", "OUT", "MOVE", "DEFRAG", "CENTER", "EJECT", "STACK" ]
+            "enum" : [ "IN", "OUT", "BLOCKING", "MOVE", "PICK", "RESTORAGE", "DEFRAG", "CENTER", "EJECT", "STACK" ]
           },
           "huId" : {
             "maxLength" : 32,
@@ -1038,10 +1033,10 @@
           "type" : "object",
           "properties" : {
             "status" : {
-              "maxLength" : 10,
+              "maxLength" : 20,
               "type" : "string",
               "description" : "Status des Transportaufttags",
-              "enum" : [ "NEW", "IDLE", "WAITING", "BUSY", "SUBSTITUTE", "COMPLETED", "FAILED" ]
+              "enum" : [ "IN", "OUT", "BLOCKING", "MOVE", "PICK", "RESTORAGE", "DEFRAG", "CENTER", "EJECT", "STACK" ]
             },
             "contourFault" : {
               "maxLength" : 10,
@@ -1088,7 +1083,8 @@
           },
           "contourFault" : {
             "maxLength" : 10,
-            "type" : "string"
+            "type" : "string",
+            "example" : ""
           },
           "weight" : {
             "maximum" : 99999999,
@@ -1096,14 +1092,20 @@
             "type" : "number",
             "description" : "Gewicht in g"
           },
-          "sourceID" : {
-            "$ref" : "#/components/schemas/Location"
+          "currentLocation" : {
+            "$ref" : "#/components/schemas/LocationId"
           },
           "status" : {
             "maxLength" : 10,
             "type" : "string",
             "description" : "Status of announcement.",
             "enum" : [ "NEW", "PENDING", "DONE", "DELETED" ]
+          },
+          "errorCode" : {
+            "maximum" : 999,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "Siehe Transport"
           }
         }
       },
@@ -1184,7 +1186,8 @@
       },
       "LocationId" : {
         "maxLength" : 32,
-        "type" : "string"
+        "type" : "string",
+        "example" : "HRL01-PFT-010501"
       },
       "LocationWithStackHeight" : {
         "required" : [ "locationId", "stackHeight" ],
@@ -1236,9 +1239,15 @@
         "description" : "Status eines Meldepunkts"
       },
       "WaypointCounter" : {
+        "required" : [ "count", "locationID" ],
         "type" : "object",
         "properties" : {
+          "locationID" : {
+            "maxLength" : 32,
+            "type" : "string"
+          },
           "count" : {
+            "minimum" : 0,
             "type" : "integer",
             "description" : "Anzahl der Aufträge die zu einem Meldpunkt unterwegs sind",
             "format" : "int32"
@@ -1251,10 +1260,6 @@
         "properties" : {
           "locations" : {
             "type" : "array",
-            "xml" : {
-              "name" : "waypointarray",
-              "wrapped" : true
-            },
             "items" : {
               "discriminator" : {
                 "propertyName" : "objecttype"
@@ -1267,14 +1272,14 @@
         },
         "description" : "Liste von Meldepunkten mit Anzahl der Aufträge die dahin unterwegs sind",
         "example" : [ {
-          "locationId" : "HRL01-PFT-010101",
+          "locationId" : "HRL01-PFT-010501",
           "count" : 1
         }, {
-          "locationId" : "HRL01-PFT-020202",
-          "status" : 100
+          "locationId" : "HRL01-PFT-020501",
+          "count" : 100
         }, {
-          "locationId" : "HRL01-PFT-030303",
-          "status" : 0
+          "locationId" : "HRL01-PFT-030501",
+          "count" : 0
         } ]
       },
       "Waypoint" : {
