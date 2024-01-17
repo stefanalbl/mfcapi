@@ -95,7 +95,7 @@
     },
     "/palletannouncement" : {
       "post" : {
-        "tags" : [ "WMS", "Announcements" ],
+        "tags" : [ "WMS" ],
         "summary" : "Sendet eine Palettenanmeldung",
         "description" : "nur für Aussschleusungen - der MFR meldet eine dem WMS unbekannte Palette zur Ausschleusung an",
         "operationId" : "createAnnouncement",
@@ -164,7 +164,7 @@
     "/palletannouncement/{tono}" : { },
     "/waypoint" : {
       "get" : {
-        "tags" : [ "Locations", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Get list of waypoints",
         "description" : "Liefert eine Liste aller bekannten Meldepunkte und deren Status\n",
         "operationId" : "getWayPoints",
@@ -189,7 +189,7 @@
     },
     "/status/waypoint/{wpid}" : {
       "get" : {
-        "tags" : [ "Status", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Meldepunkt-Status",
         "description" : "Liefert den Status eines Meldepunktes.\n",
         "operationId" : "getWayPointStatus",
@@ -233,7 +233,7 @@
     },
     "/status/waypoint/{wpId}" : {
       "patch" : {
-        "tags" : [ "Status", "WMS" ],
+        "tags" : [ "WMS" ],
         "summary" : "Status eines Meldepunktes melden/ändern",
         "description" : "Aktualisiert den Status eine Meldepunkten (MFR an LVS). Das LVS aktualisiert daraufhin sein Routing.\n",
         "parameters" : [ {
@@ -276,7 +276,7 @@
     },
     "/status/waypoint" : {
       "patch" : {
-        "tags" : [ "Status", "WMS" ],
+        "tags" : [ "WMS" ],
         "summary" : "Status mehrerer Meldepunktes melden/ändern",
         "description" : "Aktualisiert den Status von mehreren Meldepunkten (MFR an LVS). Das LVS aktualisiert daraufhin sein Routing.\n",
         "requestBody" : {
@@ -306,7 +306,7 @@
     },
     "/status/counter/{wpId}" : {
       "patch" : {
-        "tags" : [ "Counter", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Meldung Auftragszähler",
         "description" : "Meldet den Stand eines Auftragszählers an den MFC\n",
         "parameters" : [ {
@@ -344,7 +344,7 @@
     },
     "/status/counter" : {
       "patch" : {
-        "tags" : [ "Counter", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Meldung Auftragszähler",
         "description" : "Meldet den Stand der Auftragszähler (Liste mit Zählern je Meldepunkt) an den MFC\n",
         "requestBody" : {
@@ -369,7 +369,7 @@
     },
     "/transport" : {
       "get" : {
-        "tags" : [ "Transports", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Liste aller Transporte",
         "description" : "Liefert eine Liste aller Transporte (für Abfragen und Abgleich).\n",
         "operationId" : "getTransports",
@@ -398,7 +398,7 @@
         }
       },
       "put" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Aktualisierung Transportdaten",
         "description" : "Ändert einen Transportauftrag im MFR - es ist projektspezifisch festzulegen, welche Daten in welchen Sitzuationen überschrieben werden dürfen\n",
         "operationId" : "updateTransport",
@@ -485,7 +485,7 @@
         }
       },
       "post" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Erstellt Transportauftrag",
         "description" : "Erstellt einen neuen Transportauftrag (LVS and MFR).\n",
         "operationId" : "createTransport",
@@ -574,7 +574,7 @@
     },
     "/transport/updatedestination/{huId}" : {
       "patch" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Update transport",
         "description" : "LVS sendet neues Ziel an MFR\n",
         "operationId" : "updateTransportDestination",
@@ -637,7 +637,7 @@
     },
     "/transport/updatedestinationstack/{huId}" : {
       "patch" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Aktualisiert Ziel mit Stapelhöhe",
         "description" : "LVS sendet neues Ziel an MFR\n",
         "operationId" : "updateTransportDestinationWithStack",
@@ -721,7 +721,7 @@
     },
     "/transport/updatepriority/{huId}" : {
       "patch" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Änderung Transportpriorität",
         "description" : "LVS sendet geänderte Priorität an MFR\n",
         "operationId" : "updateTransportPrio",
@@ -782,7 +782,7 @@
     },
     "/transport/updateminstart/{huId}" : {
       "patch" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Änderung minimale Ausführungszeitpunkt (Start)",
         "description" : "LVS sendet geänderte Startzeit an MFR\n",
         "operationId" : "updateTransporStartMin",
@@ -843,7 +843,7 @@
     },
     "/transport/updatemaxstart/{huId}" : {
       "patch" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Änderung maximale Ausführungszeitpunkt (Ende)",
         "description" : "LVS sendet geänderte spätestes Ausführungszeit an MFR\n",
         "operationId" : "updateTransporStart",
@@ -904,7 +904,7 @@
     },
     "/transport/{huId}" : {
       "get" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Datenanfrage an MFR",
         "description" : "LVS fordert Infos zu einem Transportauftrag an\n",
         "operationId" : "getTransport",
@@ -944,7 +944,7 @@
         }
       },
       "delete" : {
-        "tags" : [ "MFC", "Transport" ],
+        "tags" : [ "MFC" ],
         "summary" : "Stornierung(-sansfrage) an MFR",
         "description" : "LVS sendert eine Stornierungsanfrage an den MFR. Im Erfolgfall bestätigt der MFR diese mit einem TransportStatus-Update. \n",
         "operationId" : "cancelTransport",
@@ -980,7 +980,7 @@
     },
     "/transportupdate" : {
       "put" : {
-        "tags" : [ "WMS", "Transport" ],
+        "tags" : [ "WMS" ],
         "summary" : "Update transport",
         "description" : "Meldung von aktualisierten Transportdaten (üblicherweise Status, Fehler und/oder akt. Position)\n",
         "operationId" : "reportTransportUpdate",
@@ -1066,8 +1066,8 @@
     },
     "/hutypes" : {
       "get" : {
-        "tags" : [ "Master data" ],
-        "summary" : "Listet alle erlaubten TE-Typen (hyTypes) auf",
+        "tags" : [ "MFC" ],
+        "summary" : "Listet alle erlaubten TE-Typen (huTypes) auf",
         "description" : "Liefert eine Liste aller definierten HU-typen\n",
         "operationId" : "getHUTypes",
         "responses" : {
