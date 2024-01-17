@@ -2,7 +2,7 @@
   "openapi" : "3.0.0",
   "info" : {
     "title" : "MFC API",
-    "description" : "# General\nStandard API for interfacing of of LTW MFC with WMS systems for automated warehouse.\n## Scenario\nThis API describes the interface between MFC and WMS. It contains common schemas and the API-endpoints of both systems.\nThe API methods tagged with `MFC` are to be implemented by the MFC (server-side) and called by the WMS (client-side). The API methods tagged with `WMS` are to be implemented by the WMS (server-side) and called by the MFC (client-side).\n## Common entities\nThe API provides access to three main entities:\n### Pallet Announcements\nUsed to introduce \"new pallets\" into the system. The MFC informs the WMS that a pallet has been detected in the system (on a conveyor position). In most scenarios a pallet has been scanned at an ID-station and the MFC reports barcode and location of the  pallet. The typical reaction of the WMS is then to create a transport.\n### Transports\nTransports are used to map the movement of a pallet from a source-location to a destination-location. The MFC will execute the transport and move the pallet to its destination. If the destination is reached the MFC informs the WMS about this change. If the destination was an intermediate destination (e.g. a decision point within the system) the WMS can update the destination of the transport and the MFC will continue with the movement. Same applies for execptions during the execution: the MFC informs the WMS about updates of location and status. Some execptions cause a final update for the WMS (no reaction needed), others may require a reaction by the WMS.\n### Waypoints\nCertain points (or areas) in the system that might change their status.  These might be:\n  - cranes\n  - aisles\n  - in or outbound conveyors\n  - crossings\n  - infeeds\n  - outbounds\n  - and others\nThe WMS is informed if a status of each waypoint to update its internal strategies.\n# Process examples\n## Inbound from conveyor to high-bay \n\n  - Forklift driver puts pallet on conveyor\n  - Pallet moves automatically to ID-station and is scanned.\n  - MFC calls `POST` [palletannouncement](#/Announcement/createAnnouncement) at the WMS.\n  - WMS processes the __announcement__ and determines a destination for the pallet (for example to a handover to a crane).\n  - WMS calls `POST` [transport](#/MFC/createTransport) to create the transport\n  - MFC executes the transport and informs the WMS with `GET`[transportupdate/progress/271](#/WMS/handleIPreached) that an intermediate destination has been reached and a new destination is required.\n  - WMS calls `PATCH` [transport/{tono}](#/MFC/changeTransportDestination) (tono is the transport-order-no of the affected transport) to set a new destination\n  - MFC executes the transport.\n  - Optional: Pallet is picked up by crane and MFC informs WMS that the pallet is on the crane by calling `GET`[transportupdate/info](#/WMS/handleLocationChanged) on the WMS. No reaction by WMS neccessary.\n  - Pallet is put into rack-location (destination). MFC informs WMS that transport was completed. `GET` [transportupdate/completion](#/MFC/handleTransportCompletion).\n  \n",
+    "description" : "# General\nAPI für die Schnittstelle eines MFR zu einem LVS.\n## Szenario\nDiese API beschreibt die Schnittstelle zwschen MFR und LVS. Beide Seiten implementieren die jeweils notwendigen Endpunkte. Diese werden dann vom jeweiligen Partnerssytem aufgerufen, um Daten zu übermittlent.\nDie API-Methoden, die mit `MFC` markiert sind, werden vom MFR als serverseitige Methode implementiert und  vom LVS/WMS aufgerufen.      Die API-Methoden, die mit `WMS` markiert sind, werden vom LVS/WMS als serverseitige Methode implementiert und  vom MFR/MFC aufgerufen.     \nZiel ist die Übermittluing der Daten nach dem Push-Prinzip. Der Sender übermittelt Nachrichten, wenn sie anfallen. Es sollen keine Daten abgefragt kontinuiertlich werden müssen.\n\n## Entitäten\nDiese API unterstützt den Zugriff auf diese Haupt-Entitäten:\n### Palettenanmeldungen\nWerden verwendet, um Paletten durch den MFR beim LVS anzumelden.  Dies erfolgt im Normalfall an einem Identifiktationspunkt (I-Punkt), wenn ein Palettenbarcode gelesen wird. Der MFR meldet daraufhin den Palettenbarcode samt Infos der Konturenkontrolle und Position an das WMS, das daraufhin einen TRansportauftrag erstellen muss. Bei diesem konkreten Projekt werden nur unerwartet aufgetauchte unbekannte Paletten \"angemeldet\".  Beispiel: an einer Position der Fördertechnik befindet sich nach einer Störung eine Palette ohne Daten und Transportauftrag. Über die Visualisierung kann der Bediener eine \"Ausschleusung\" beantragen. Daraufhin meldet der MFR die Palette mit einer virtuellen (selbstgenerierrten eindeutigen Nummer) ID and das WMS, das daraufhin einen Transport zu einem Ausschleuse oder Klärplatz veranlassen kann.\n\n### Transporte\nTransporte werden verwendet, um Palettenbewegungen von einer Quelle zu einem Ziel zu beauftragen und deren Status  mitzuteilen. Das LVS/WMS erstellt Transportaufträge und sendet diese an den MFR zur Ausführung. Der MFR führt diese aus und meldet den Status oder Zwischenstati an das LVS. The MFC will execute the transport and move the pallet to its destination. Transporte können sowohl von einer Quelle zu einer Endposition erfolgen oder zu sogenannten Zwischenzielen. Wird ein Zwischenziel erreicht, wird der bestehende Auftzrag verändert (in diesem Fall das Ziel). Treten während der Auasführung Ausnahmen auf, informiert der MFR das WMS entsprechend über eine Transportstatusrückmeldung. Diese Rückmeldungen werden unterschieden in endgültige Rückmeldungen (zB Fach-Frei), die keine Folgereaktion erfordern oder aber Rücklmeldungen zwingend erfordern (zB. Fach-belegt, Ersatzziel benötigt).\n### Meldepunkte\nBestimmte Punkte oder Bereiche können ihnen Status ändern oder der Status kann vom Partnersystem explizit gesetzt werden. Meldepunkte sind\n  - RBGs\n  - Gassen\n  - Ein- und Auslagerstreckebn\n  - Kreuzungspunkte\n  - und andere.\nMFR informiert das LVS über den Status der Meldepunkte, damit dieses seine Strategien und Materialfluss anpasen kann.\nSonderfall: Für bestimmte Übergaben benötigt das MFR (für Optimierungen)  Zählerstände für Paletten, die noch an dem Punkt zu erwarten sind. \n# Prozess-Beispiele\n## Einlagerung von Heber-Insel ins HRL\n\n  - Fördertechnik bewegt Palette zur Übergabe zur EBB\n  - LVS ruft `POST` [transport](#/MFC/createTransport), um den Transport anzulegen (zB. Übergabepunkt Einlagerung Gasse X).\n  - MFR führt den Transport aus und informiert das LVS mittels Transport-Rückmeldung, dass ein Zwischenziel erreicht wurde: `PUT`[transportupdate](#/WMS/reportTransportUpdate)\n  - Das LVS sendet daraufhin eine Transportaktualisierung an den MFR  `PATCH` [transport/Updatedestination/{huId}](#/MFC/updateTransportDestination) (huId is the transport-order-no of the affected transport) to set a new destination\n  - MFR führt Transport aus.\n  - Optional: Palette wird vom RBG aufgeommen, daraufhin informiert der MFR das WMS, dass die Palette sich jetzt auf dem RBG befindet (und nicht mehr am Einlagerstich): `GET`[transportupdate/info](#/WMS/handleLocationChanged). Es ist keine Reaktion durch das WMS notwendig.\n  - Palette wird im Regal am Zielplatz (destination) abgestellt . MFR informiert das WMS, dass der Tranport nun erledigt ist. `PUT` [transportupdate](#/WMS/reportTransportUpdate).\n  \n",
     "termsOfService" : "https://www.ltw.at/service",
     "contact" : {
       "name" : "LTW API-Support",
@@ -13,10 +13,10 @@
       "name" : "Apache 2.0",
       "url" : "https://www.apache.org/licenses/LICENSE-2.0"
     },
-    "version" : "1.0.0"
+    "version" : "1.0.1189_2"
   },
   "servers" : [ {
-    "url" : "https://virtserver.swaggerhub.com/LTW/MFC/1.0.0",
+    "url" : "https://virtserver.swaggerhub.com/LTW/MFC/1.0.1189_2",
     "description" : "SwaggerHub API Auto Mocking"
   }, {
     "url" : "https://virtserver.swaggerhub.com/stefanalbl/MFC/1.0.0",
@@ -81,55 +81,26 @@
     "/ping" : {
       "get" : {
         "tags" : [ "Connectivity" ],
-        "summary" : "connectivity test",
-        "description" : "Connectivity test - to verify connectivity without triggering any actions.",
+        "summary" : "connectivity test - keep -alive",
+        "description" : "Connectivity test - wird verwendet, um die grundsätzliche Konnektivität (inkl. Authrorisierung) )zu prüfen und zu testen.",
         "responses" : {
           "200" : {
             "description" : "OK"
           },
           "401" : {
-            "description" : "Not authorized."
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
     },
     "/palletannouncement" : {
-      "get" : {
-        "tags" : [ "MFC", "Announcement" ],
-        "summary" : "Get list of existing announcements",
-        "description" : "... more details ...",
-        "operationId" : "getAnnouncements",
-        "responses" : {
-          "200" : {
-            "description" : "Success",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AnnouncementList"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AnnouncementList"
-                }
-              }
-            }
-          },
-          "404" : {
-            "description" : "Announement was not found."
-          },
-          "500" : {
-            "description" : "Unexpected error."
-          }
-        }
-      },
       "post" : {
-        "tags" : [ "WMS", "Announcement" ],
-        "summary" : "create (report) announcement",
-        "description" : "sends a pallet announcement to the WMS. Information that a (new) pallet appeared on a ID-point.  Next step: WMS should create a transport-order ",
+        "tags" : [ "WMS" ],
+        "summary" : "Sendet eine Palettenanmeldung",
+        "description" : "nur für Aussschleusungen - der MFR meldet eine dem WMS unbekannte Palette zur Ausschleusung an",
         "operationId" : "createAnnouncement",
         "requestBody" : {
-          "description" : "Pallet announcement data",
+          "description" : "Daten der Palettenanmeldung",
           "content" : {
             "application/json" : {
               "schema" : {
@@ -160,194 +131,42 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "405" : {
-            "description" : "Storage item already known, cannot add again. Use update routine instead."
+            "description" : "Transport (huId) bereits als Transport vorhanden. Benutzen sie transportupdate anstatt dessen."
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Fehler Datenfeld hutype"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Fehler Datenfeld huid"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Fehler Datenfeld contourFault"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Fehler Datenfeld weight"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Fehler Datenfeld currentLocation"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Fehler Datenfeld status"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Fehler Datenfeld errorCode"
           }
         }
       }
     },
-    "/palletannouncement/{tono}" : {
-      "get" : {
-        "tags" : [ "Announcement", "MFC" ],
-        "summary" : "Get announcement data by tono",
-        "description" : "Returns the data records for the requested announcement\n",
-        "operationId" : "getAnnouncementByToNo",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "path",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Announcement"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Announcement"
-                }
-              },
-              "text/plain" : {
-                "schema" : {
-                  "type" : "string"
-                }
-              }
-            }
-          },
-          "404" : {
-            "description" : "A storage item with the specified ID was not found."
-          },
-          "500" : {
-            "description" : "Unexpected error."
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "Announcement", "MFC" ],
-        "summary" : "delete (cancel) an announcement",
-        "description" : "Deletes an announcement\n",
-        "operationId" : "deleteAnnouncementByToNo",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "path",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        } ],
-        "responses" : {
-          "204" : {
-            "description" : "Successfully fulfilled - announcement was deleted"
-          },
-          "405" : {
-            "description" : "Not allowed to delete announcement."
-          },
-          "500" : {
-            "description" : "Unexpected error."
-          }
-        }
-      }
-    },
-    "/locations/{type}" : {
-      "get" : {
-        "tags" : [ "Locations", "MFC" ],
-        "summary" : "Gets a list of  known locations  by type",
-        "description" : "Provides a list of known locations. Typically the ERP/PPS/MES will use locations of type `VIR` for interfacing with WMS. Details to be defined in each project.\n",
-        "operationId" : "getLocationsByType",
-        "parameters" : [ {
-          "name" : "type",
-          "in" : "path",
-          "description" : "Type of locations to be returned.",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "enum" : [ "VIR" ]
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/LocationList"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/LocationList"
-                }
-              }
-            }
-          },
-          "500" : {
-            "description" : "Unexpected error."
-          }
-        }
-      }
-    },
-    "/location/{locationId}" : {
-      "get" : {
-        "tags" : [ "Locations", "MFC" ],
-        "summary" : "Get location details",
-        "description" : "WMS can query the location details of a location.\n",
-        "operationId" : "getLocationByID",
-        "parameters" : [ {
-          "name" : "locationId",
-          "in" : "path",
-          "description" : "Location-ID of location which data should be returned.",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "maxLength" : 32,
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Location"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Location"
-                }
-              }
-            }
-          },
-          "500" : {
-            "description" : "Unexpected error."
-          }
-        }
-      }
-    },
+    "/palletannouncement/{tono}" : { },
     "/waypoint" : {
       "get" : {
-        "tags" : [ "Locations", "MFC" ],
+        "tags" : [ "MFC" ],
         "summary" : "Get list of waypoints",
-        "description" : "Gets a list of known waypoints and their status \n",
+        "description" : "Liefert eine Liste aller bekannten Meldepunkte und deren Status\n",
         "operationId" : "getWayPoints",
         "responses" : {
           "200" : {
@@ -370,14 +189,14 @@
     },
     "/status/waypoint/{wpid}" : {
       "get" : {
-        "tags" : [ "Status", "MFC", "WMS" ],
-        "summary" : "Get waypoint status",
-        "description" : "Gets the status of a waypoint. The caller asks the master-system aboit the status of a waypoint in its system. The caller might then update it's own sttaus based on the querys result. Usage might depend on the scenario.\n",
+        "tags" : [ "MFC" ],
+        "summary" : "Meldepunkt-Status",
+        "description" : "Liefert den Status eines Meldepunktes.\n",
         "operationId" : "getWayPointStatus",
         "parameters" : [ {
           "name" : "wpid",
           "in" : "path",
-          "description" : "ID of waypoint.",
+          "description" : "ID des Meldepunktes.",
           "required" : true,
           "style" : "simple",
           "explode" : false,
@@ -385,7 +204,7 @@
             "maxLength" : 32,
             "type" : "string"
           },
-          "example" : "PFT01-01-01-01"
+          "example" : "HRL01-PFT-010101"
         } ],
         "responses" : {
           "200" : {
@@ -402,28 +221,36 @@
                 }
               }
             }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "501" : {
+            "description" : "Unbekannter Meldepunkt"
           }
         }
       }
     },
-    "/status/waypoint" : {
+    "/status/waypoint/{wpId}" : {
       "patch" : {
-        "tags" : [ "Status", "WMS" ],
-        "summary" : "Set status of waypoint",
-        "description" : "Changes the status of a waypoint - WMS should update its internal routing\n",
+        "tags" : [ "WMS" ],
+        "summary" : "Status eines Meldepunktes melden/ändern",
+        "description" : "Aktualisiert den Status eine Meldepunkten (MFR an LVS). Das LVS aktualisiert daraufhin sein Routing.\n",
         "parameters" : [ {
-          "name" : "wpid",
-          "in" : "query",
-          "description" : "ID of waypoint",
+          "name" : "wpId",
+          "in" : "path",
+          "description" : "ID des Meldepunktes.",
           "required" : true,
-          "style" : "form",
-          "explode" : true,
+          "style" : "simple",
+          "explode" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/WaypointId"
-          }
+            "maxLength" : 32,
+            "type" : "string"
+          },
+          "example" : "HRL01-PFT-010501"
         } ],
         "requestBody" : {
-          "description" : "Update Waypoint",
+          "description" : "Status des Meldepunkts",
           "content" : {
             "application/json" : {
               "schema" : {
@@ -439,16 +266,112 @@
         },
         "responses" : {
           "204" : {
-            "description" : "Updated"
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          }
+        }
+      }
+    },
+    "/status/waypoint" : {
+      "patch" : {
+        "tags" : [ "WMS" ],
+        "summary" : "Status mehrerer Meldepunktes melden/ändern",
+        "description" : "Aktualisiert den Status von mehreren Meldepunkten (MFR an LVS). Das LVS aktualisiert daraufhin sein Routing.\n",
+        "requestBody" : {
+          "description" : "Liste mit Meldepunkten und deren Status",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WaypointList"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WaypointList"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          }
+        }
+      }
+    },
+    "/status/counter/{wpId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Meldung Auftragszähler",
+        "description" : "Meldet den Stand eines Auftragszählers an den MFC\n",
+        "parameters" : [ {
+          "name" : "wpId",
+          "in" : "path",
+          "description" : "ID des Meldepunktes.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 32,
+            "type" : "string"
+          },
+          "example" : "HRL01-PFT-010501"
+        } ],
+        "requestBody" : {
+          "description" : "Zählerstand",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Count"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          }
+        }
+      }
+    },
+    "/status/counter" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Meldung Auftragszähler",
+        "description" : "Meldet den Stand der Auftragszähler (Liste mit Zählern je Meldepunkt) an den MFC\n",
+        "requestBody" : {
+          "description" : "Liste mit Meldepunkten und deren Zählerständen",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WaypointCounterList"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
     },
     "/transport" : {
       "get" : {
-        "tags" : [ "Transports", "MFC" ],
-        "summary" : "Get list of transports",
-        "description" : "Provides a list of transports of the MFC.\n",
+        "tags" : [ "MFC" ],
+        "summary" : "Liste aller Transporte",
+        "description" : "Liefert eine Liste aller Transporte (für Abfragen und Abgleich).\n",
         "operationId" : "getTransports",
         "responses" : {
           "200" : {
@@ -466,69 +389,21 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "500" : {
             "description" : "Unexpected error."
           }
         }
       },
       "put" : {
-        "tags" : [ "MFC", "Transport" ],
-        "summary" : "Sends transport info updates to WMS",
-        "description" : "Updates a transport ......\n",
+        "tags" : [ "MFC" ],
+        "summary" : "Aktualisierung Transportdaten",
+        "description" : "Ändert einen Transportauftrag im MFR - es ist projektspezifisch festzulegen, welche Daten in welchen Sitzuationen überschrieben werden dürfen\n",
         "operationId" : "updateTransport",
         "requestBody" : {
-          "description" : "Transport order data",
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Transport"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Transport"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "description" : "Transportinfo update received"
-          },
-          "405" : {
-            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
-          },
-          "511" : {
-            "description" : "Error in data tutype"
-          },
-          "512" : {
-            "description" : "Error in data huid"
-          },
-          "513" : {
-            "description" : "Error in data tono"
-          },
-          "514" : {
-            "description" : "Error in data barcode"
-          },
-          "515" : {
-            "description" : "Error in data weight"
-          },
-          "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
-          },
-          "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "MFC", "Transport" ],
-        "summary" : "Create new transport",
-        "description" : "Create a new transport-order within the MFC \n",
-        "operationId" : "createTransport",
-        "requestBody" : {
-          "description" : "Transport order data",
+          "description" : "Transportauftragsdaten",
           "content" : {
             "application/json" : {
               "schema" : {
@@ -545,7 +420,7 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Transport was created",
+            "description" : "Transport wurde geändert.",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -560,105 +435,557 @@
             }
           },
           "202" : {
-            "description" : "Transport creation request successfully received, creation is deferred."
+            "description" : "Transportupdate empfangen, Verarbeitung erfolgt später."
           },
-          "405" : {
-            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "TuNo/huID unbekannt"
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Datenfehler Feld transportType"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Datenfehler Feld huId"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Datenfehler Feld currentLocation"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Datenfehler Feld nextLocation"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Datenfehler Feld priority"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Datenfehler Feld sequence"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Datenfehler Feld executionTimeMin"
+          },
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
+          },
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
+          },
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
+          },
+          "521" : {
+            "description" : "Datenfehler Feld status"
+          },
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
+          },
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Erstellt Transportauftrag",
+        "description" : "Erstellt einen neuen Transportauftrag (LVS and MFR).\n",
+        "operationId" : "createTransport",
+        "requestBody" : {
+          "description" : "Transportauftragsdaten",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTransport"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTransport"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport wurde erfolgreich erstellt.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "202" : {
+            "description" : "Transporterstellungsanfrage empfangen, Verarbeitung erfolgt asynchron"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "405" : {
+            "description" : "ToNo oder HuID bereits vorhanden (anderer Transport)"
+          },
+          "511" : {
+            "description" : "Datenfehler Feld transportType"
+          },
+          "512" : {
+            "description" : "Datenfehler Feld huId"
+          },
+          "513" : {
+            "description" : "Datenfehler Feld currentLocation"
+          },
+          "514" : {
+            "description" : "Datenfehler Feld nextLocation"
+          },
+          "515" : {
+            "description" : "Datenfehler Feld priority"
+          },
+          "516" : {
+            "description" : "Datenfehler Feld sequence"
+          },
+          "517" : {
+            "description" : "Datenfehler Feld executionTimeMin"
+          },
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
+          },
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
+          },
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
+          },
+          "521" : {
+            "description" : "Datenfehler Feld status"
+          },
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
+          },
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
           }
         }
       }
     },
-    "/transport/{tono}" : {
-      "delete" : {
-        "tags" : [ "MFC", "Transport" ],
-        "summary" : "Cancel transport",
-        "description" : "Cancel a transport......, MFC will send a transport-update\n",
-        "operationId" : "cancelTransport",
+    "/transport/updatedestination/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Update transport",
+        "description" : "LVS sendet neues Ziel an MFR\n",
+        "operationId" : "updateTransportDestination",
         "parameters" : [ {
-          "name" : "tono",
+          "name" : "huId",
           "in" : "path",
-          "description" : "Transport Order Number",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
           "required" : true,
           "style" : "simple",
           "explode" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neues Transportziel",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationId"
+              },
+              "example" : "HRL01-03-03-03-06-01"
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationId"
+              },
+              "example" : "HRL01-03-03-03-06-01"
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was updated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huID unbekannt, Transport nicht vorhanden"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld (invalid location)."
+          }
+        }
+      }
+    },
+    "/transport/updatedestinationstack/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Aktualisiert Ziel mit Stapelhöhe",
+        "description" : "LVS sendet neues Ziel an MFR\n",
+        "operationId" : "updateTransportDestinationWithStack",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neues Transportziel mit Stapelhöhe",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationWithStackHeight"
+              },
+              "examples" : {
+                "firstpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 1
+                  }
+                },
+                "secondpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 2
+                  }
+                },
+                "thirdpallet" : {
+                  "value" : {
+                    "locationId" : "HRL01-03-03-03-06-01",
+                    "stackHeight" : 3
+                  }
+                }
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LocationWithStackHeight"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was updated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huID unbekannt, Transport nicht vorhanden"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld (invalid location)."
+          },
+          "502" : {
+            "description" : "Fehler im Datenfeld (invalid stack height)."
+          }
+        }
+      }
+    },
+    "/transport/updatepriority/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Änderung Transportpriorität",
+        "description" : "LVS sendet geänderte Priorität an MFR\n",
+        "operationId" : "updateTransportPrio",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neues Priorität",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Priority"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Priority"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport was updated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "TuNo unknonw, requested transport was not found."
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld priority."
+          }
+        }
+      }
+    },
+    "/transport/updateminstart/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Änderung minimale Ausführungszeitpunkt (Start)",
+        "description" : "LVS sendet geänderte Startzeit an MFR\n",
+        "operationId" : "updateTransporStartMin",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neue Startzeit",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Time"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Time"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport aktualisiert",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huId unbekannt, kein Transport mit dieser huId"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld executiontime (invalid date/time)."
+          }
+        }
+      }
+    },
+    "/transport/updatemaxstart/{huId}" : {
+      "patch" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Änderung maximale Ausführungszeitpunkt (Ende)",
+        "description" : "LVS sendet geänderte spätestes Ausführungszeit an MFR\n",
+        "operationId" : "updateTransporStart",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
+          }
+        } ],
+        "requestBody" : {
+          "description" : "Neue max. Ausführungszeit",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Time"
+              }
+            },
+            "application/xml" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Time"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Transport aktualisiert",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huId unbekannt, kein Transport mit dieser huId"
+          },
+          "501" : {
+            "description" : "Error in data-field executiontime (invalid date/time)."
+          }
+        }
+      }
+    },
+    "/transport/{huId}" : {
+      "get" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Datenanfrage an MFR",
+        "description" : "LVS fordert Infos zu einem Transportauftrag an\n",
+        "operationId" : "getTransport",
+        "parameters" : [ {
+          "name" : "huId",
+          "in" : "path",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TuNo"
           }
         } ],
         "responses" : {
-          "204" : {
-            "description" : "Cancellation succeeded (done)"
+          "200" : {
+            "description" : "Erfolg",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
           },
-          "202" : {
-            "description" : "Cancellation request accepted (processing os pending)"
+          "404" : {
+            "description" : "huID unbekannt. Transport ist nicht vorhanden."
           },
-          "205" : {
-            "description" : "ToNo unknown - nothing to be done"
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       },
-      "patch" : {
-        "tags" : [ "MFC", "Transport" ],
-        "summary" : "Updates a transport",
-        "description" : "Change destination\n",
-        "operationId" : "changeTransportDestination",
+      "delete" : {
+        "tags" : [ "MFC" ],
+        "summary" : "Stornierung(-sansfrage) an MFR",
+        "description" : "LVS sendert eine Stornierungsanfrage an den MFR. Im Erfolgfall bestätigt der MFR diese mit einem TransportStatus-Update. \n",
+        "operationId" : "cancelTransport",
         "parameters" : [ {
-          "name" : "tono",
+          "name" : "huId",
           "in" : "path",
-          "description" : "Transport Order Number",
+          "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
           "required" : true,
           "style" : "simple",
           "explode" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "destination",
-          "in" : "query",
-          "description" : "destination",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
+            "$ref" : "#/components/schemas/TuNo"
           }
         } ],
         "responses" : {
           "204" : {
-            "description" : "update succeeded (done)"
+            "description" : "Transportauftrag erfolgreich gelöscht."
+          },
+          "202" : {
+            "description" : "Stornierungsanfrage aktzeptiert, Verarbeitung erfoogt später."
+          },
+          "404" : {
+            "description" : "huID unbekannt. Transport ist nicht vorhanden."
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "509" : {
+            "description" : "Transport konnte nicht gelöscht werden. Ist im MFR bereits aktiv und wird weiterhin ausgeführt."
           }
         }
       }
     },
     "/transportupdate" : {
       "put" : {
-        "tags" : [ "WMS", "Transport" ],
+        "tags" : [ "WMS" ],
         "summary" : "Update transport",
-        "description" : "Updates an existing transport-order within the MFC (see details, what can be changed in which state).\n",
-        "operationId" : "changeTransport",
+        "description" : "Meldung von aktualisierten Transportdaten (üblicherweise Status, Fehler und/oder akt. Position)\n",
+        "operationId" : "reportTransportUpdate",
         "requestBody" : {
-          "description" : "Transport order data",
+          "description" : "Transportdaten",
           "content" : {
             "application/json" : {
               "schema" : {
@@ -675,7 +1002,7 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Transport was created",
+            "description" : "Transport wurde aktualisert",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -689,321 +1016,59 @@
               }
             }
           },
-          "405" : {
-            "description" : "ToNo was already in use, cannot add again. Use update routine instead."
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huID (TuNo) unbekannt"
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Datenfehler Feld transportType"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Datenfehler Feld huId"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Datenfehler Feld currentLocation"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Datenfehler Feld nextLocation"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Datenfehler Feld priority"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Datenfehler Feld sequence"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
-          }
-        }
-      }
-    },
-    "/transportupdate/info" : {
-      "patch" : {
-        "tags" : [ "WMS", "Transport" ],
-        "summary" : "Pallet location has changed",
-        "description" : "MFC informs WMS about a location change without and required reaction by WMS (info only).\n",
-        "operationId" : "handleLocationChanged",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "query",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "currentLocation",
-          "in" : "query",
-          "description" : "current location",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success"
+            "description" : "Datenfehler Feld executionTimeMin"
           },
-          "511" : {
-            "description" : "Tono unknown"
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
           },
-          "512" : {
-            "description" : "Location unknown"
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
           },
-          "501" : {
-            "description" : "Unexpected error",
-            "content" : {
-              "text/plain" : {
-                "schema" : {
-                  "maxLength" : 250,
-                  "type" : "string",
-                  "example" : "Internal error during processing of record, call support"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/transportupdate/completion" : {
-      "patch" : {
-        "tags" : [ "WMS", "Transport" ],
-        "summary" : "Transport completed",
-        "description" : "MFC informs WMS that the transport was executed completely and is now finished.\n",
-        "operationId" : "handleTransportCompleted",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "query",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "currentLocation",
-          "in" : "query",
-          "description" : "current location",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success"
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
           },
-          "511" : {
-            "description" : "Tono unknown"
+          "521" : {
+            "description" : "Datenfehler Feld status"
           },
-          "512" : {
-            "description" : "Location unknown"
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
           },
-          "501" : {
-            "description" : "Unexpected error",
-            "content" : {
-              "text/plain" : {
-                "schema" : {
-                  "maxLength" : 250,
-                  "type" : "string",
-                  "example" : "Internal error during processing of record, call support"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/transportupdate/progress/{infocode}" : {
-      "patch" : {
-        "tags" : [ "WMS", "Transport" ],
-        "summary" : "Pallet reached IP",
-        "description" : "Pallet has reached an intermediate destination. Details in `infocode`\n",
-        "operationId" : "handleIPreached",
-        "parameters" : [ {
-          "name" : "infocode",
-          "in" : "path",
-          "description" : "Infocode",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "type" : "string",
-            "default" : "271",
-            "enum" : [ "271", "272" ]
-          },
-          "example" : "271"
-        }, {
-          "name" : "tono",
-          "in" : "query",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "currentLocation",
-          "in" : "query",
-          "description" : "current location",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success"
-          },
-          "511" : {
-            "description" : "Tono unknown"
-          },
-          "512" : {
-            "description" : "Location unknown"
-          },
-          "501" : {
-            "description" : "Unexpected error",
-            "content" : {
-              "text/plain" : {
-                "schema" : {
-                  "maxLength" : 250,
-                  "type" : "string",
-                  "example" : "Internal error during processing of record, call support"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/transportupdate/error/reaction/dpOccupied" : {
-      "patch" : {
-        "tags" : [ "WMS", "Transport" ],
-        "summary" : "Destination location is already occupied",
-        "description" : "The pallet was moved to the designated destination, but the destination was reported as already occupied (by the executing device e.g. crane).  The MFC has no knowledge, what was detected and if the reason for the detection was a proper pallet or just a reflection for the sensor, which is checking the state of the location. The WMS is expected to handle this event. The minimum expected reaction is an update of the transport with a new destination.\n",
-        "operationId" : "handleDPoccupied",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "query",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "currentLocation",
-          "in" : "query",
-          "description" : "current location",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        }, {
-          "name" : "destination",
-          "in" : "query",
-          "description" : "destination",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success"
-          },
-          "511" : {
-            "description" : "Tono unknown"
-          },
-          "512" : {
-            "description" : "Location unknown"
-          },
-          "513" : {
-            "description" : "Destination unknown"
-          },
-          "501" : {
-            "description" : "Unexpected error",
-            "content" : {
-              "text/plain" : {
-                "schema" : {
-                  "maxLength" : 250,
-                  "type" : "string",
-                  "example" : "Internal error during processing of record, call support"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/transportupdate/error/failure/apfree" : {
-      "patch" : {
-        "tags" : [ "WMS", "Transport" ],
-        "summary" : "Source location was empty",
-        "description" : "The crane tried to pick up a pallet from the source-location But the location was empty. The transport cannot be executed and The WMS needs to handle the failure of the transport. No furhter reaction is neccessary for this transport (same tono).\n",
-        "operationId" : "handleAPfree",
-        "parameters" : [ {
-          "name" : "tono",
-          "in" : "query",
-          "description" : "Transport Order Number",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/ToNo"
-          }
-        }, {
-          "name" : "currentLocation",
-          "in" : "query",
-          "description" : "current location",
-          "required" : true,
-          "style" : "form",
-          "explode" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Location"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Success"
-          },
-          "511" : {
-            "description" : "Tono unknown"
-          },
-          "501" : {
-            "description" : "Unexpected error",
-            "content" : {
-              "text/plain" : {
-                "schema" : {
-                  "maxLength" : 250,
-                  "type" : "string",
-                  "example" : "Internal error during processing of record, call support"
-                }
-              }
-            }
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
           }
         }
       }
     },
     "/hutypes" : {
       "get" : {
-        "tags" : [ "Master data" ],
-        "summary" : "List HU-Types",
-        "description" : "Gets a list of all known TU-Types for this project Provides a list of HU-types - result depends on project.\n",
+        "tags" : [ "MFC" ],
+        "summary" : "Listet alle erlaubten TE-Typen (huTypes) auf",
+        "description" : "Liefert eine Liste aller definierten HU-typen\n",
         "operationId" : "getHUTypes",
         "responses" : {
           "200" : {
@@ -1021,6 +1086,9 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "500" : {
             "description" : "Unexpected error."
           }
@@ -1030,101 +1098,101 @@
   },
   "components" : {
     "schemas" : {
-      "Transport" : {
-        "required" : [ "currentLocation", "huId", "nextLocation", "status", "tono" ],
-        "type" : "object",
-        "properties" : {
-          "tono" : {
-            "maximum" : 9999,
-            "minimum" : 0,
-            "type" : "integer",
-            "description" : "internal identifier of transport order within WMS, ToNo is within a range from 1-9999 and is reused constantly. Only unique during the lifetime of one transport.",
-            "format" : "int32"
-          },
-          "status" : {
-            "maxLength" : 10,
-            "type" : "string",
-            "description" : "Status of transport order",
-            "enum" : [ "NEW", "IDLE", "WAITING", "BUSY", "SUBSTITUTE", "COMPLETED", "FAILED" ]
-          },
-          "startDate" : {
-            "type" : "string",
-            "description" : "start time of transport (creation) in format RFC3339 Section 5.6",
-            "format" : "date-time",
-            "example" : "2022-12-24T17:01:59Z"
-          },
-          "transportType" : {
-            "maxLength" : 10,
-            "type" : "string",
-            "enum" : [ "IN", "OUT", "MOVE", "DEFRAG", "CENTER", "EJECT" ]
-          },
-          "huId" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "description" : "ID of Handling-Unit that is transported"
-          },
-          "sourceLocation" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "description" : "source location of transport (start location) - must be a valid Location)"
-          },
-          "currentLocation" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "description" : "current location of transport (start location) - must be a valid Location)"
-          },
-          "nextLocation" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "description" : "next destination of transport (start location) - must be a valid Location)"
-          },
-          "destination" : {
-            "maxLength" : 32,
-            "type" : "string",
-            "description" : "final destination of transport (start location) - must be a valid Location)"
-          }
-        },
-        "description" : "Entity which holds all data of a transport order for a single handling-unit from a source to its destination"
-      },
       "CreateTransport" : {
-        "required" : [ "currentLocation", "huId", "nextLocation" ],
+        "required" : [ "currentLocation", "huId", "huType", "nextLocation" ],
         "type" : "object",
         "properties" : {
-          "tono" : {
-            "maximum" : 9999,
-            "minimum" : 0,
-            "type" : "integer",
-            "description" : "internal identifier of transport order within WMS, ToNo is within a range from 1-9999 and is reused constantly. Only unique during the lifetime of one transport.",
-            "format" : "int32"
-          },
-          "startDate" : {
-            "type" : "string",
-            "description" : "start time of transport (creation) in format RFC3339 Section 5.6",
-            "format" : "date-time",
-            "example" : "2022-12-24T17:01:59Z"
-          },
           "transportType" : {
-            "maxLength" : 10,
+            "maxLength" : 20,
             "type" : "string",
-            "enum" : [ "IN", "OUT", "MOVE", "DEFRAG", "CENTER", "EJECT" ]
+            "description" : "Transporttype (informell) zur Klassifizierung von Transportaufträgen",
+            "enum" : [ "IN", "OUT", "BLOCKING", "MOVE", "PICK", "RESTORAGE", "DEFRAG", "CENTER", "EJECT", "STACK" ]
           },
           "huId" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "ID of Handling-Unit that is transported"
+            "description" : "Handling-Unit-ID- eindeutige Identifikation einer Transporteinheit (zB. Barcode)"
+          },
+          "huType" : {
+            "maxLength" : 10,
+            "type" : "string",
+            "description" : "Größen-Klasse der Handling Unit die transportiert wird. Erlaubte Werte: \n  - U    die Abmessungen der Ladeeinheit sind unbekannt\n  - F    die Abmessungen der Ladeeinheit sind fehlerhaft (z.B. Profilfehler)\n  - LEER  1200 x 800 x 150  Leerpalette (Nur für HRL)\n  - EP1  1500 x 1100 x 940mm  Europalette mit Überhang\n  - EP2  1500 x 1100 x 1140mm  Europalette mit Überhang\n  - EP3  1500 x 1100 x 1650mm  Europalette mit Überhang\n  - EP4 *  1500 x 1100 x 1800mm  Europalette mit Überhang\n",
+            "enum" : [ "U", "F", "LEER", "EP1", "EP2", "EP3", "EP4" ]
           },
           "currentLocation" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "current location of transport (start location) - must be a valid Location)"
+            "description" : "aktuelle Position der Transporteinheit (muss ein gültige Startposition sein)"
           },
           "nextLocation" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "next destination of transport (start location) - must be a valid Location)"
+            "description" : "Ziel oder nächstes Zwischenziel für Transporteiheit"
+          },
+          "priority" : {
+            "maximum" : 9,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "Ausführungspriorität für den MFR",
+            "example" : 0
+          },
+          "sequence" : {
+            "type" : "integer"
+          },
+          "executionTimeMin" : {
+            "type" : "string",
+            "description" : "Ferühester Ausführungzeitpunkt (Vorgabe) im Format RFC3339 Section 5.6",
+            "format" : "date-time",
+            "example" : "2022-12-24T17:01:59Z"
+          },
+          "executionTimeMax" : {
+            "type" : "string",
+            "description" : "Spätester Ausführungzeitpunkt (Vorgabe) im Format RFC3339 Section 5.6",
+            "format" : "date-time",
+            "example" : "2022-12-24T17:01:59Z"
+          },
+          "infoText" : {
+            "maxLength" : 40,
+            "type" : "string",
+            "description" : "Infotext für Anzeige in der Visualisierung (zB. Artikelnummer oder Auftragsnummer als Hilfestellung für den Bediener)\n"
+          },
+          "stackHeight" : {
+            "maximum" : 9,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "Stapelhöhe für das Aufstapeln von Leer-Paletten. 0, wenn nicht genutzt. Ansonsten 1-9",
+            "example" : 0
           }
         },
-        "description" : "Entity which holds all data of a transport order for a single handling-unit from a source to its destination"
+        "description" : "Alle relevanten Daten, um einen Transportauftrag für den MFR zu erzeugen."
+      },
+      "Transport" : {
+        "description" : "Transportauftragsdaten",
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/CreateTransport"
+        }, {
+          "required" : [ "status" ],
+          "type" : "object",
+          "properties" : {
+            "status" : {
+              "maxLength" : 20,
+              "type" : "string",
+              "description" : "Status des Transportaufttags",
+              "enum" : [ "IN", "OUT", "BLOCKING", "MOVE", "PICK", "RESTORAGE", "DEFRAG", "CENTER", "EJECT", "STACK" ]
+            },
+            "contourFault" : {
+              "maxLength" : 10,
+              "type" : "string",
+              "description" : "Konturenfehler der Transporteiheut nach einer Konturenkontrolle (Werteliste siehe Projektdokutmentation), leer (NULL) wenn kein Konturenfehler vorliegt"
+            },
+            "errorCode" : {
+              "maximum" : 999,
+              "minimum" : 0,
+              "type" : "integer",
+              "description" : "Fehlercodes eines Transportauftrags. Beispiele:  \n220 Unbekannte ToNo (für TR, TM, TD, TC)\n221 ToNo bereits vergeben und keine Änderung erlaubt (Auftrag läuft) für TS,TM,TD\n  TO-Fehler (nur im TC-Telegramm) \n  \n222  Aktuelle Position der TU unbekannt – Die Transporteinheit wurde manuell von der Anlage entfernt 223  TU with Konturenfehler 224  Größe der Transporteinheit hat sich verändert 225  Auftragspuffer voll (maximale Anzahl an Aufträgen an vom WMS an den mC übermittelt) 226  Datenabgleich läuft 227  TS an der aktuelle Position nicht erlaubt – TM erwartet. 228  Ausschleusung erforderlich (mC verlangt eine Ausschleusung) 229  unbekannte TU auf Ap (RBG meldet vollzogene Abgabe einer TU aber mC hat keine TO/TU)\n\n230  Neue TuNo ungültig (TuNoNew) 231  TuNo bereits verwendet\n  \n240  Ap gesperrt 241  Ap zu klein (wird standardmäßig nicht verwendet – nur falls es im projektspezifischen RBG-Pflichtenheft benötigt wird) 242  Ap fehlerhaft (z. B. Positionierproblem des RBGs) 243  Ap verdeckt 244  Ap frei 245  Ap nicht erreichbar 246  Ap: Handshake nicht bereit (Förderanlage ausgeschaltet) 247  Ap außer Betrieb (Ap ist außer Betrieb, abgeschaltet vom Bediener) 249  Ap: Palette zu schwer für RBG 250  Ap unbekannte TU\n  \n260  Dp gesperrt 261  Dp zu klein 262  Dp fehlerhaft 263  Dp verdeckt 264  Dp belegt 265  Dp nicht erreichbar  266  Dp: Handshake nicht bereit (Förderanlage abgeschaltet) 267  Dp ausser Betrieb (Dp ist außer Betrieb, abgeschaltet vom Bediener)\n  \n270  Ip erreicht – Folgeziel erwartet 271  Zieländerung nicht erlaubt 272  Ip fast erreicht 280  Abhängiger Transportauftrag fehlt 281  Abhängiger Transportauftrag wurde gelöscht 282  Überkreuzende Ziele 285  Abhängiger AGV-TO veraltet (DepM=AGV)\n  \n290  Benutzerdefinierter Fehler 1 291  Benutzerdefinierter Fehler 2 292  Benutzerdefinierter Fehler 3 293  Benutzerdefinierter Fehler 4 294  Benutzerdefinierter Fehler 5 295  Benutzerdefinierter Fehler 6 296  Benutzerdefinierter Fehler 7 297  Benutzerdefinierter Fehler 8\n  \n298  Transportauftrag mit Änderungen ausgeführt\n"
+            }
+          }
+        } ]
       },
       "TransportList" : {
         "type" : "object",
@@ -1143,38 +1211,45 @@
         "description" : "List of Transports"
       },
       "Announcement" : {
-        "required" : [ "huId", "tono", "tuType" ],
+        "required" : [ "huId", "huType" ],
         "type" : "object",
         "properties" : {
-          "tuType" : {
+          "huType" : {
             "maxLength" : 5,
-            "type" : "string"
+            "type" : "string",
+            "description" : "TE-Type der Transporteinheit, zB. EP03 für Euro-Palette Höhenklasse 3",
+            "example" : "EP03"
           },
-          "tono" : {
-            "maximum" : 9999,
-            "minimum" : 1,
-            "type" : "number"
-          },
-          "barcode" : {
-            "maxLength" : 1024,
-            "type" : "string"
+          "huId" : {
+            "maxLength" : 32,
+            "type" : "string",
+            "description" : "eindeutige ID der Transporteinheit (TuNo bzw. Barcode)"
           },
           "contourFault" : {
-            "type" : "string"
+            "maxLength" : 10,
+            "type" : "string",
+            "example" : ""
           },
           "weight" : {
             "maximum" : 99999999,
             "minimum" : 0,
-            "type" : "number"
+            "type" : "number",
+            "description" : "Gewicht in g"
           },
-          "sourceID" : {
-            "$ref" : "#/components/schemas/Location"
+          "currentLocation" : {
+            "$ref" : "#/components/schemas/LocationId"
           },
           "status" : {
             "maxLength" : 10,
             "type" : "string",
             "description" : "Status of announcement.",
             "enum" : [ "NEW", "PENDING", "DONE", "DELETED" ]
+          },
+          "errorCode" : {
+            "maximum" : 999,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "Siehe Transport"
           }
         }
       },
@@ -1192,36 +1267,47 @@
             }
           }
         },
-        "description" : "List of Announcements"
+        "description" : "Liste von Anmeldungen"
       },
       "HandlingUnitType" : {
-        "required" : [ "typeId" ],
+        "required" : [ "huType" ],
         "type" : "object",
         "properties" : {
-          "typeId" : {
-            "type" : "integer",
-            "format" : "int32"
+          "huType" : {
+            "maxLength" : 5,
+            "type" : "string"
           },
           "description" : {
             "maxLength" : 255,
             "type" : "string"
           },
-          "with" : {
+          "width" : {
             "type" : "integer",
+            "description" : "max Breite in mm",
             "format" : "int32"
           },
           "length" : {
             "type" : "integer",
+            "description" : "max Länge in mm",
             "format" : "int32"
           },
           "height" : {
             "type" : "integer",
+            "description" : "max Höhe in mm",
             "format" : "int32"
           },
           "base" : {
             "type" : "integer",
+            "description" : "not used",
             "format" : "int32"
           }
+        },
+        "example" : {
+          "huType" : "EP01",
+          "description" : "Euro-Palette Höhenklasse 1",
+          "width" : 800,
+          "length" : 1200,
+          "height" : 940
         }
       },
       "Location" : {
@@ -1253,133 +1339,25 @@
         },
         "description" : "Location data for locations used by both systems (MFC and WMS)."
       },
-      "LocationList" : {
+      "LocationId" : {
+        "maxLength" : 32,
+        "type" : "string",
+        "example" : "HRL01-PFT-010501"
+      },
+      "LocationWithStackHeight" : {
+        "required" : [ "locationId", "stackHeight" ],
         "type" : "object",
         "properties" : {
-          "locations" : {
-            "type" : "array",
-            "xml" : {
-              "name" : "locationarray",
-              "wrapped" : true
-            },
-            "items" : {
-              "discriminator" : {
-                "propertyName" : "objecttype"
-              },
-              "oneOf" : [ {
-                "$ref" : "#/components/schemas/Location"
-              }, {
-                "$ref" : "#/components/schemas/StorageLocation"
-              }, {
-                "$ref" : "#/components/schemas/ConveyorLocation"
-              }, {
-                "$ref" : "#/components/schemas/CraneLocation"
-              }, {
-                "$ref" : "#/components/schemas/AGVLocation"
-              }, {
-                "$ref" : "#/components/schemas/EquipmentLocation"
-              } ]
-            }
-          }
-        },
-        "description" : "List of Locations"
-      },
-      "StorageLocation" : {
-        "allOf" : [ {
-          "$ref" : "#/components/schemas/Location"
-        }, {
-          "required" : [ "LType", "R", "X", "Y", "Z", "objecttype" ],
-          "type" : "object",
-          "properties" : {
-            "R" : {
-              "type" : "integer",
-              "description" : "Rack number of location (1-n)",
-              "format" : "int32"
-            },
-            "X" : {
-              "type" : "integer",
-              "description" : "X-coordinate (column) of location (1-n)",
-              "format" : "int32"
-            },
-            "Y" : {
-              "type" : "integer",
-              "description" : "Y-coordinate (level) of location (1-n)",
-              "format" : "int32"
-            },
-            "Z" : {
-              "type" : "integer",
-              "description" : "Z-coordinate (fork extension) of location (1-n)",
-              "format" : "int32"
-            },
-            "Pix" : {
-              "type" : "integer",
-              "description" : "place within compartment",
-              "format" : "int32"
-            },
-            "LType" : {
-              "type" : "integer",
-              "description" : "type of size of location",
-              "format" : "int32"
-            }
+          "locationId" : {
+            "$ref" : "#/components/schemas/LocationId"
           },
-          "description" : "specific rack locations inside high-bays"
-        } ]
-      },
-      "ConveyorLocation" : {
-        "required" : [ "Area", "Main", "Sub" ],
-        "type" : "object",
-        "properties" : {
-          "Area" : {
-            "type" : "integer",
-            "description" : "Conveyor Area number",
-            "format" : "int32"
-          },
-          "Main" : {
-            "type" : "integer",
-            "description" : "Conveyor main number",
-            "format" : "int32"
-          },
-          "Sub" : {
-            "type" : "integer",
-            "description" : "Conveyor sub-number",
-            "format" : "int32"
+          "stackHeight" : {
+            "maximum" : 10,
+            "minimum" : 1,
+            "type" : "integer"
           }
         },
-        "description" : "Conveyor location data"
-      },
-      "CraneLocation" : {
-        "type" : "object",
-        "properties" : {
-          "craneNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        },
-        "description" : "Crane location daza"
-      },
-      "AGVLocation" : {
-        "type" : "object",
-        "properties" : {
-          "systemID" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "vehicle" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        },
-        "description" : "Location within an AGV system"
-      },
-      "EquipmentLocation" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        },
-        "description" : "Future use"
+        "description" : "Zielplatz inkl. Stapelhöhe für Leerpaletten"
       },
       "WaypointId" : {
         "maxLength" : 32,
@@ -1388,6 +1366,21 @@
       "ToNo" : {
         "type" : "integer"
       },
+      "Priority" : {
+        "maximum" : 9,
+        "minimum" : 0,
+        "type" : "integer"
+      },
+      "TuNo" : {
+        "maxLength" : 32,
+        "type" : "string"
+      },
+      "Time" : {
+        "type" : "string",
+        "description" : "start time of transport (creation) in format RFC3339 Section 5.6",
+        "format" : "date-time",
+        "example" : "2022-12-24T17:01:59Z"
+      },
       "WaypointStatus" : {
         "type" : "object",
         "properties" : {
@@ -1395,10 +1388,60 @@
             "type" : "string",
             "example" : "AUTO",
             "default" : "AUTO",
-            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BUSY", "JAM" ]
+            "enum" : [ "NONE", "IDLE", "AUTO", "MANU", "ERR", "STOP", "BLOCK", "BUSY", "JAM" ]
           }
         },
-        "description" : "Status of a waypoint"
+        "description" : "Status eines Meldepunkts"
+      },
+      "Count" : {
+        "minimum" : 0,
+        "type" : "integer",
+        "description" : "Anzahl Transportaufträge",
+        "example" : 25
+      },
+      "WaypointCounter" : {
+        "required" : [ "count", "locationID" ],
+        "type" : "object",
+        "properties" : {
+          "locationID" : {
+            "maxLength" : 32,
+            "type" : "string"
+          },
+          "count" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "Anzahl der Aufträge die zu einem Meldpunkt unterwegs sind",
+            "format" : "int32"
+          }
+        },
+        "description" : "Anzahl der Aufträge die zu einem Meldpunkt unterwegs sind"
+      },
+      "WaypointCounterList" : {
+        "type" : "object",
+        "properties" : {
+          "locations" : {
+            "type" : "array",
+            "items" : {
+              "discriminator" : {
+                "propertyName" : "objecttype"
+              },
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/WaypointCounter"
+              } ]
+            }
+          }
+        },
+        "description" : "Liste von Meldepunkten mit Anzahl der Aufträge die dahin unterwegs sind",
+        "example" : [ {
+          "locationId" : "HRL01-PFT-010501",
+          "count" : 1
+        }, {
+          "locationId" : "HRL01-PFT-020501",
+          "count" : 100
+        }, {
+          "locationId" : "HRL01-PFT-030501",
+          "count" : 0
+        } ]
       },
       "Waypoint" : {
         "type" : "object",
@@ -1406,10 +1449,10 @@
           "locationId" : {
             "maxLength" : 32,
             "type" : "string",
-            "description" : "locationID of waypoint"
+            "description" : "locationID des Meldepunkts"
           }
         },
-        "description" : "waypoint within system",
+        "description" : "Meldepunkt innerhalb der Anlage",
         "allOf" : [ {
           "$ref" : "#/components/schemas/WaypointStatus"
         }, {
@@ -1436,7 +1479,17 @@
             }
           }
         },
-        "description" : "List of Waypoints"
+        "description" : "Liste aller definierten Meldepunkte",
+        "example" : [ {
+          "locationId" : "HRL01-PFT-010101",
+          "status" : "AUTO"
+        }, {
+          "locationId" : "HRL01-PFT-020202",
+          "status" : "MANU"
+        }, {
+          "locationId" : "RBG01-LAM2",
+          "status" : "ERR"
+        } ]
       },
       "inline_response_200" : {
         "type" : "object",
@@ -1471,6 +1524,17 @@
         "explode" : false,
         "schema" : {
           "$ref" : "#/components/schemas/ToNo"
+        }
+      },
+      "TuNoPath" : {
+        "name" : "huId",
+        "in" : "path",
+        "description" : "Transport Unit Number (TuNo) bzw. huId (Handling Unit ID)",
+        "required" : true,
+        "style" : "simple",
+        "explode" : false,
+        "schema" : {
+          "$ref" : "#/components/schemas/TuNo"
         }
       },
       "InfoCode" : {
