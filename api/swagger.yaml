@@ -82,20 +82,20 @@
       "get" : {
         "tags" : [ "Connectivity" ],
         "summary" : "connectivity test - keep -alive",
-        "description" : "Connectivity test - to verify connectivity without triggering any actions.",
+        "description" : "Connectivity test - wird verwendet, um die grundsätzliche Konnektivität (inkl. Authrorisierung) )zu prüfen und zu testen.",
         "responses" : {
           "200" : {
             "description" : "OK"
           },
           "401" : {
-            "description" : "Not authorized."
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
     },
     "/palletannouncement" : {
       "post" : {
-        "tags" : [ "WMS", "Anmeldung" ],
+        "tags" : [ "WMS", "Announcements" ],
         "summary" : "Sendet eine Palettenanmeldung",
         "description" : "nur für Aussschleusungen - der MFR meldet eine dem WMS unbekannte Palette zur Ausschleusung an",
         "operationId" : "createAnnouncement",
@@ -131,29 +131,32 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "405" : {
-            "description" : "Storage item already known, cannot add again. Use update routine instead."
+            "description" : "Transport (huId) bereits als Transport vorhanden. Benutzen sie transportupdate anstatt dessen."
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Fehler Datenfeld hutype"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Fehler Datenfeld huid"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Fehler Datenfeld contourFault"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Fehler Datenfeld weight"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Fehler Datenfeld currentLocation"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Fehler Datenfeld status"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Fehler Datenfeld errorCode"
           }
         }
       }
@@ -163,7 +166,7 @@
       "get" : {
         "tags" : [ "Locations", "MFC" ],
         "summary" : "Get list of waypoints",
-        "description" : "Gets a list of known waypoints and their status \n",
+        "description" : "Liefert eine Liste aller bekannten Meldepunkte und deren Status\n",
         "operationId" : "getWayPoints",
         "responses" : {
           "200" : {
@@ -188,7 +191,7 @@
       "get" : {
         "tags" : [ "Status", "MFC" ],
         "summary" : "Meldepunkt-Status",
-        "description" : "Liefert den Status eine Meldepunktes.\n",
+        "description" : "Liefert den Status eines Meldepunktes.\n",
         "operationId" : "getWayPointStatus",
         "parameters" : [ {
           "name" : "wpid",
@@ -218,40 +221,12 @@
                 }
               }
             }
-          }
-        }
-      },
-      "put" : {
-        "tags" : [ "MFC", "Status" ],
-        "summary" : "Meldepunkt-Zählerstand",
-        "operationId" : "setWaypointCounter",
-        "parameters" : [ {
-          "name" : "wpid",
-          "in" : "path",
-          "description" : "ID des Meldepunktes.",
-          "required" : true,
-          "style" : "simple",
-          "explode" : false,
-          "schema" : {
-            "maxLength" : 32,
-            "type" : "string"
           },
-          "example" : "HRL01-PFT-01-01-01"
-        } ],
-        "requestBody" : {
-          "description" : "Transportdaten",
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WaypointCounter"
-              }
-            }
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "Success"
+          "501" : {
+            "description" : "Unbekannter Meldepunkt"
           }
         }
       }
@@ -272,7 +247,7 @@
             "maxLength" : 32,
             "type" : "string"
           },
-          "example" : "HRL01-PFT-010101"
+          "example" : "HRL01-PFT-010501"
         } ],
         "requestBody" : {
           "description" : "Status des Meldepunkts",
@@ -291,7 +266,10 @@
         },
         "responses" : {
           "204" : {
-            "description" : "Updated"
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
@@ -318,16 +296,57 @@
         },
         "responses" : {
           "204" : {
-            "description" : "Updated"
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          }
+        }
+      }
+    },
+    "/status/counter/{wpId}" : {
+      "patch" : {
+        "tags" : [ "Counter", "MFC" ],
+        "summary" : "Meldung Auftragszähler",
+        "description" : "Meldet den Stand eines Auftragszählers an den MFC\n",
+        "parameters" : [ {
+          "name" : "wpId",
+          "in" : "path",
+          "description" : "ID des Meldepunktes.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 32,
+            "type" : "string"
+          },
+          "example" : "HRL01-PFT-010501"
+        } ],
+        "requestBody" : {
+          "description" : "Zählerstand",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Count"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
     },
     "/status/counter" : {
       "patch" : {
-        "tags" : [ "Counter", "WMS", "MFC" ],
+        "tags" : [ "Counter", "MFC" ],
         "summary" : "Meldung Auftragszähler",
-        "description" : "Meldet den Stand der Auftragszähler an das WMS (Liste mit Zählern je Meldepunkt) oder an den MFC\n",
+        "description" : "Meldet den Stand der Auftragszähler (Liste mit Zählern je Meldepunkt) an den MFC\n",
         "requestBody" : {
           "description" : "Liste mit Meldepunkten und deren Zählerständen",
           "content" : {
@@ -340,7 +359,10 @@
         },
         "responses" : {
           "204" : {
-            "description" : "Updated"
+            "description" : "Aktualisierung erfolgreich"
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       }
@@ -366,6 +388,9 @@
                 }
               }
             }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           },
           "500" : {
             "description" : "Unexpected error."
@@ -410,31 +435,52 @@
             }
           },
           "202" : {
-            "description" : "Transport update request successfully received, update is deferred."
+            "description" : "Transportupdate empfangen, Verarbeitung erfolgt später."
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           },
           "404" : {
-            "description" : "TuNo unknown."
+            "description" : "TuNo/huID unbekannt"
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Datenfehler Feld transportType"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Datenfehler Feld huId"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Datenfehler Feld currentLocation"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Datenfehler Feld nextLocation"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Datenfehler Feld priority"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Datenfehler Feld sequence"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Datenfehler Feld executionTimeMin"
+          },
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
+          },
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
+          },
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
+          },
+          "521" : {
+            "description" : "Datenfehler Feld status"
+          },
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
+          },
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
           }
         }
       },
@@ -461,7 +507,7 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Transport wurde erstellt.",
+            "description" : "Transport wurde erfolgreich erstellt.",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -478,29 +524,50 @@
           "202" : {
             "description" : "Transporterstellungsanfrage empfangen, Verarbeitung erfolgt asynchron"
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "405" : {
-            "description" : "ToNo or HuID was already in use, cannot add again. Use update routine instead."
+            "description" : "ToNo oder HuID bereits vorhanden (anderer Transport)"
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Datenfehler Feld transportType"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Datenfehler Feld huId"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Datenfehler Feld currentLocation"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Datenfehler Feld nextLocation"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Datenfehler Feld priority"
           },
           "516" : {
-            "description" : "duplicate tono - cannot be used weil other transport is using same tono"
+            "description" : "Datenfehler Feld sequence"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Datenfehler Feld executionTimeMin"
+          },
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
+          },
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
+          },
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
+          },
+          "521" : {
+            "description" : "Datenfehler Feld status"
+          },
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
+          },
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
           }
         }
       }
@@ -556,8 +623,14 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "404" : {
-            "description" : "TuNo unknonw, requested transport was not found."
+            "description" : "huID unbekannt, Transport nicht vorhanden"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld (invalid location)."
           }
         }
       }
@@ -631,8 +704,17 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "404" : {
-            "description" : "TuNo unknonw, requested transport was not found."
+            "description" : "huID unbekannt, Transport nicht vorhanden"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld (invalid location)."
+          },
+          "502" : {
+            "description" : "Fehler im Datenfeld (invalid stack height)."
           }
         }
       }
@@ -686,8 +768,14 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "404" : {
             "description" : "TuNo unknonw, requested transport was not found."
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld priority."
           }
         }
       }
@@ -741,8 +829,14 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "404" : {
             "description" : "huId unbekannt, kein Transport mit dieser huId"
+          },
+          "501" : {
+            "description" : "Fehler im Datenfeld executiontime (invalid date/time)."
           }
         }
       }
@@ -796,8 +890,14 @@
               }
             }
           },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
           "404" : {
             "description" : "huId unbekannt, kein Transport mit dieser huId"
+          },
+          "501" : {
+            "description" : "Error in data-field executiontime (invalid date/time)."
           }
         }
       }
@@ -820,14 +920,26 @@
           }
         } ],
         "responses" : {
-          "204" : {
-            "description" : "Cancellation succeeded (done)"
+          "200" : {
+            "description" : "Erfolg",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Transport"
+                }
+              }
+            }
           },
-          "202" : {
-            "description" : "Cancellation request accepted (processing os pending)"
+          "404" : {
+            "description" : "huID unbekannt. Transport ist nicht vorhanden."
           },
-          "205" : {
-            "description" : "ToNo unknown - nothing to be done"
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           }
         }
       },
@@ -849,13 +961,19 @@
         } ],
         "responses" : {
           "204" : {
-            "description" : "Cancellation succeeded (done)"
+            "description" : "Transportauftrag erfolgreich gelöscht."
           },
           "202" : {
-            "description" : "Cancellation request accepted (processing os pending)"
+            "description" : "Stornierungsanfrage aktzeptiert, Verarbeitung erfoogt später."
           },
-          "205" : {
-            "description" : "ToNo unknown - nothing to be done"
+          "404" : {
+            "description" : "huID unbekannt. Transport ist nicht vorhanden."
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "509" : {
+            "description" : "Transport konnte nicht gelöscht werden. Ist im MFR bereits aktiv und wird weiterhin ausgeführt."
           }
         }
       }
@@ -884,7 +1002,7 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Transport was created",
+            "description" : "Transport wurde aktualisert",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -898,29 +1016,50 @@
               }
             }
           },
-          "405" : {
-            "description" : "TuNo was already in use, cannot add again. Use update routine instead."
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
+          },
+          "404" : {
+            "description" : "huID (TuNo) unbekannt"
           },
           "511" : {
-            "description" : "Error in data tutype"
+            "description" : "Datenfehler Feld transportType"
           },
           "512" : {
-            "description" : "Error in data huid"
+            "description" : "Datenfehler Feld huId"
           },
           "513" : {
-            "description" : "Error in data tono"
+            "description" : "Datenfehler Feld currentLocation"
           },
           "514" : {
-            "description" : "Error in data barcode"
+            "description" : "Datenfehler Feld nextLocation"
           },
           "515" : {
-            "description" : "Error in data weight"
+            "description" : "Datenfehler Feld priority"
           },
           "516" : {
-            "description" : "duplicate huID - cannot be used weil other transport is using same tono"
+            "description" : "Datenfehler Feld sequence"
           },
           "517" : {
-            "description" : "duplicate barcode - pallet already in transport"
+            "description" : "Datenfehler Feld executionTimeMin"
+          },
+          "518" : {
+            "description" : "Datenfehler Feld executionTimeMax"
+          },
+          "519" : {
+            "description" : "Datenfehler Feld infoText"
+          },
+          "520" : {
+            "description" : "Datenfehler Feld stackHeight"
+          },
+          "521" : {
+            "description" : "Datenfehler Feld status"
+          },
+          "522" : {
+            "description" : "Datenfehler Feld contourFault"
+          },
+          "523" : {
+            "description" : "Datenfehler Feld erroCode"
           }
         }
       }
@@ -946,6 +1085,9 @@
                 }
               }
             }
+          },
+          "401" : {
+            "description" : "Not authorized. Nicht berechtigt. Prüfen sie Benutzername und Passwort."
           },
           "500" : {
             "description" : "Unexpected error."
@@ -1069,17 +1211,19 @@
         "description" : "List of Transports"
       },
       "Announcement" : {
-        "required" : [ "huId", "tuType" ],
+        "required" : [ "huId", "huType" ],
         "type" : "object",
         "properties" : {
-          "tuType" : {
+          "huType" : {
             "maxLength" : 5,
             "type" : "string",
-            "description" : "TE-Type der Transporteinheit, zB. EP01 für Euro-Palette Höhenklasse 1"
+            "description" : "TE-Type der Transporteinheit, zB. EP03 für Euro-Palette Höhenklasse 3",
+            "example" : "EP03"
           },
-          "barcode" : {
+          "huId" : {
             "maxLength" : 32,
-            "type" : "string"
+            "type" : "string",
+            "description" : "eindeutige ID der Transporteinheit (TuNo bzw. Barcode)"
           },
           "contourFault" : {
             "maxLength" : 10,
@@ -1123,36 +1267,47 @@
             }
           }
         },
-        "description" : "List of Announcements"
+        "description" : "Liste von Anmeldungen"
       },
       "HandlingUnitType" : {
-        "required" : [ "typeId" ],
+        "required" : [ "huType" ],
         "type" : "object",
         "properties" : {
-          "typeId" : {
-            "type" : "integer",
-            "format" : "int32"
+          "huType" : {
+            "maxLength" : 5,
+            "type" : "string"
           },
           "description" : {
             "maxLength" : 255,
             "type" : "string"
           },
-          "with" : {
+          "width" : {
             "type" : "integer",
+            "description" : "max Breite in mm",
             "format" : "int32"
           },
           "length" : {
             "type" : "integer",
+            "description" : "max Länge in mm",
             "format" : "int32"
           },
           "height" : {
             "type" : "integer",
+            "description" : "max Höhe in mm",
             "format" : "int32"
           },
           "base" : {
             "type" : "integer",
+            "description" : "not used",
             "format" : "int32"
           }
+        },
+        "example" : {
+          "huType" : "EP01",
+          "description" : "Euro-Palette Höhenklasse 1",
+          "width" : 800,
+          "length" : 1200,
+          "height" : 940
         }
       },
       "Location" : {
@@ -1237,6 +1392,12 @@
           }
         },
         "description" : "Status eines Meldepunkts"
+      },
+      "Count" : {
+        "minimum" : 0,
+        "type" : "integer",
+        "description" : "Anzahl Transportaufträge",
+        "example" : 25
       },
       "WaypointCounter" : {
         "required" : [ "count", "locationID" ],
